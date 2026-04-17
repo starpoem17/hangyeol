@@ -24,11 +24,11 @@
 
 ## 1. 구현 전 고정된 MVP 결정
 
-- [ ] 앱 레벨 사용자 테이블은 `profiles`로 고정하고 `profiles.id = auth.users.id` 1:1 관계를 사용한다.
-- [ ] `profiles`는 사람 사용자 전용으로만 사용하고 예제 고민 작성자는 `profiles`에 넣지 않는다.
+- [x] 앱 레벨 사용자 테이블은 `profiles`로 고정하고 `profiles.id = auth.users.id` 1:1 관계를 사용한다.
+- [x] `profiles`는 사람 사용자 전용으로만 사용하고 예제 고민 작성자는 `profiles`에 넣지 않는다.
 - [ ] 익명 로그인 후 앱 삭제/재설치 시 동일 익명 신원 복구는 MVP 범위 밖으로 명시한다.
 - [ ] 첫 실행 온보딩 수집 항목은 `성별 + 관심분야(복수 선택)`로 고정한다.
-- [ ] 성별은 필수값이며 MVP에서 수정 불가로 고정한다.
+- [ ] 성별은 `onboarding_completed = true`가 되는 시점에 필수값이며, MVP에서는 일반 클라이언트가 직접 수정하지 않도록 고정한다.
 - [ ] 하단 네비게이션은 `Inbox / Post concern / Notifications / Profile` 4개로 고정한다.
 - [ ] `My concerns`는 별도 탭이 아니라 `Post concern` 내부 중첩 화면으로 고정한다.
 - [ ] 앱 첫 화면은 항상 `Inbox(내게 전달된 고민 목록)`로 고정한다.
@@ -37,9 +37,9 @@
 - [ ] 적격 답변자가 0명이면 그때만 no-delivery를 허용한다.
 - [ ] 예제 고민은 실제 사용자 고민처럼 보이게 표시하되 내부적으로 `example`로 태깅한다.
 - [ ] 예제 고민은 답변만 가능하고 좋아요/후기/푸시/solved-count/기본 분석 대상에서 제외한다.
-- [ ] `response_feedback`는 `liked`와 `comment_body`를 같은 행에 저장한다.
-- [ ] `notifications` 읽음 상태는 enum이 아니라 `read_at nullable`로 처리한다.
-- [ ] 차단된 원문과 raw moderation payload는 일반 제품 테이블이 아니라 관리자 전용 moderation audit 저장소에만 보관한다.
+- [x] `response_feedback`는 `liked`와 `comment_body`를 같은 행에 저장한다.
+- [x] `notifications` 읽음 상태는 enum이 아니라 `read_at nullable`로 처리한다.
+- [x] 차단된 원문과 raw moderation payload는 일반 제품 테이블이 아니라 관리자 전용 moderation audit 저장소에만 보관한다.
 - [ ] solved-count는 저장형 카운터가 아니라 실사용자 고민의 실제 positive feedback으로부터 파생 계산한다.
 
 ## 2. 기술 기반과 저장소 구조 세팅
@@ -77,19 +77,19 @@
 
 - [ ] `profiles` 스키마를 확정한다.
   - `id`는 `auth.users.id`와 동일한 PK/FK
-  - `gender` 필수
-  - `onboarding_completed` 필수
+  - `gender`는 `onboarding_completed = true`일 때 필수
+  - `onboarding_completed`는 필수 boolean이며 서버 소유 상태로 관리
   - `is_active` / `is_blocked` 등 라우팅 적격성 판단 필드 포함
-- [ ] 관심분야 저장 전략을 확정한다.
+- [x] 관심분야 저장 전략을 확정한다.
   - 관심분야 enum 또는 참조 테이블
   - 사용자-관심분야 연결 구조
-- [ ] `concerns` 스키마를 확정한다.
+- [x] `concerns` 스키마를 확정한다.
   - 승인된 사용자 표시용 고민만 저장
   - `source_type = real | example`
   - `real` 고민은 `author_profile_id` 필수
   - `example` 고민은 `author_profile_id` 없이 `example_key` 또는 동등한 시스템 식별자 사용
   - `concerns.status` 같은 범용 catch-all 상태 필드는 도입하지 않는다
-- [ ] `concern_deliveries` 스키마를 확정한다.
+- [x] `concern_deliveries` 스키마를 확정한다.
   - `concern_id`
   - `recipient_profile_id`
   - `status = assigned | opened | responded`
@@ -97,23 +97,23 @@
   - `opened_at`
   - `responded_at`
   - `author_profile_id`는 중복 저장하지 않는다
-- [ ] `responses` 스키마를 확정한다.
+- [x] `responses` 스키마를 확정한다.
   - `delivery_id` FK
   - 답변 본문
   - 생성 시각
   - 답변자는 `delivery_id -> concern_deliveries`로 추적한다
-- [ ] `response_feedback` 스키마를 확정한다.
+- [x] `response_feedback` 스키마를 확정한다.
   - `response_id`
   - `concern_author_profile_id`
   - `liked boolean`
   - `comment_body nullable`
   - 생성/수정 시각
-- [ ] `push_tokens` 스키마를 확정한다.
+- [x] `push_tokens` 스키마를 확정한다.
   - `profile_id`
   - Expo push token
   - platform
   - updated_at
-- [ ] `notifications` 스키마를 확정한다.
+- [x] `notifications` 스키마를 확정한다.
   - `profile_id`
   - `type = concern_delivered | response_received | response_liked | response_commented`
   - 관련 엔티티 id
@@ -122,24 +122,24 @@
 
 ## 4. DB 제약조건과 정합성 규칙 확정
 
-- [ ] 다음 제약조건을 DB 레벨에서 강제한다.
+- [x] 다음 제약조건을 DB 레벨에서 강제한다.
   - `UNIQUE (concern_id, recipient_profile_id)` on `concern_deliveries`
   - `UNIQUE (delivery_id)` on `responses`
   - `UNIQUE (response_id, concern_author_profile_id)` on `response_feedback`
-- [ ] `concerns`에 source type별 check constraint를 둔다.
+- [x] `concerns`에 source type별 check constraint를 둔다.
   - `real`이면 `author_profile_id` 필수, `example_key` 비어 있음
   - `example`이면 `author_profile_id` 비어 있음, `example_key` 필수
 - [ ] 자기 자신의 고민을 자기에게 전달하는 self-delivery를 금지한다.
   - 서버 insert 로직에서 차단
   - DB guard/trigger 또는 동등한 검증으로 최종 차단
-- [ ] 동일 고민에 이미 배정된 사용자 재배정을 금지한다.
+- [x] 동일 고민에 이미 배정된 사용자 재배정을 금지한다.
 - [ ] 동일 고민에 이미 답변한 사용자의 재선정을 금지한다.
-- [ ] 예제 고민에 대한 feedback row 생성을 금지한다.
+- [x] 예제 고민에 대한 feedback row 생성을 금지한다.
 
 ## 5. Moderation audit 저장소 분리
 
-- [ ] 관리자 전용 moderation audit 저장소를 별도 테이블/경로로 만든다.
-- [ ] moderation audit 저장소에 다음 필드를 둔다.
+- [x] 관리자 전용 moderation audit 저장소를 별도 테이블/경로로 만든다.
+- [x] moderation audit 저장소에 다음 필드를 둔다.
   - subject type
   - actor/profile reference
   - raw submitted text
@@ -150,7 +150,7 @@
   - approved entity link nullable
 - [ ] 차단된 고민/답변/후기 코멘트는 제품 테이블에 저장하지 않고 audit 저장소에만 남긴다.
 - [ ] 승인된 고민/답변/후기 코멘트는 제품 테이블에 저장하고 audit에는 연결 정보만 남긴다.
-- [ ] 일반 클라이언트는 moderation audit 저장소를 읽거나 쓸 수 없도록 RLS와 서버 경로를 분리한다.
+- [ ] moderation audit 저장소에 대한 일반 클라이언트 RLS 차단은 구현하고, 전용 서버 쓰기 경로 분리는 후속 단계에서 완료한다.
 
 ## 6. 익명 인증과 온보딩 구현
 
@@ -251,8 +251,8 @@
 
 ## 11. 좋아요 및 후기(comment) 구현
 
-- [ ] 실사용자 고민의 작성자만 해당 답변에 feedback를 남길 수 있게 한다.
-- [ ] feedback 입력/저장 규칙을 구현한다.
+- [x] 실사용자 고민의 작성자만 해당 답변에 feedback를 남길 수 있게 한다.
+- [x] feedback 입력/저장 규칙을 구현한다.
   - `liked`는 boolean
   - `comment_body`는 nullable
   - 한 답변당 한 작성자 row만 허용
@@ -279,31 +279,31 @@
 ## 13. 알림 시스템 구현
 
 - [ ] Expo Notifications 권한 요청 및 토큰 등록 흐름을 구현한다.
-- [ ] 사용자는 자신의 push token만 등록/수정할 수 있게 한다.
+- [x] 사용자는 자신의 push token만 등록/수정할 수 있게 한다.
 - [ ] 앱 알림 타입을 구현한다.
   - `concern_delivered`
   - `response_received`
   - `response_liked`
   - `response_commented`
-- [ ] 알림 읽음 처리는 `read_at` 갱신으로 구현한다.
+- [x] 알림 읽음 처리는 `read_at` 갱신으로 구현한다.
 - [ ] 예제 고민 관련 알림은 만들지 않는다.
 
 ## 14. RLS 정책과 서버 접근 규칙 구현
 
-- [ ] `profiles`는 본인만 조회/수정 가능하게 한다.
-- [ ] 실사용자 고민은 작성자만 자신의 고민을 조회 가능하게 한다.
-- [ ] `concern_deliveries`는 배정된 recipient만 조회 가능하게 한다.
-- [ ] 답변 생성은 해당 delivery의 recipient만 가능하게 한다.
-- [ ] 내 고민에 대한 답변 조회는 해당 고민 작성자만 가능하게 한다.
-- [ ] feedback 생성은 해당 실사용자 고민 작성자만 가능하게 한다.
-- [ ] 예제 고민에 대한 feedback 생성은 정책 차원에서 막는다.
-- [ ] `push_tokens`는 본인만 관리 가능하게 한다.
-- [ ] moderation audit 저장소는 일반 사용자에게 완전히 차단한다.
+- [ ] `profiles`는 본인만 조회 가능하게 하고, 일반 클라이언트의 직접 수정은 허용하지 않으며 보호된 프로필 쓰기는 서버 소유 경로로 처리한다.
+- [x] 실사용자 고민은 작성자만 자신의 고민을 조회 가능하게 한다.
+- [x] `concern_deliveries`는 배정된 recipient만 조회 가능하게 한다.
+- [x] 답변 생성은 해당 delivery의 recipient만 가능하게 한다.
+- [x] 내 고민에 대한 답변 조회는 해당 고민 작성자만 가능하게 한다.
+- [x] feedback 생성은 해당 실사용자 고민 작성자만 가능하게 한다.
+- [x] 예제 고민에 대한 feedback 생성은 정책 차원에서 막는다.
+- [x] `push_tokens`는 본인만 관리 가능하게 한다.
+- [x] moderation audit 저장소는 일반 사용자에게 완전히 차단한다.
 - [ ] 가능하면 읽기/쓰기 경로를 Edge Function 중심으로 고정해 정책 우회를 줄인다.
 
 ## 15. DB 레벨 vs 서버 레벨 vs 앱 레벨 책임 분리
 
-- [ ] DB 레벨에서 반드시 강제할 항목을 구현한다.
+- [x] DB 레벨에서 반드시 강제할 항목을 구현한다.
   - PK/FK/UNIQUE/check constraint
   - source type 무결성
   - delivery/response/feedback 중복 방지

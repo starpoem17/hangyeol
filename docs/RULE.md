@@ -20,3 +20,16 @@ Use TODO.md as the source of scope, but begin implementation in this execution o
 Do not start with UI polish first. Start with data model, access control, and routing-critical backend paths.
 
 plans/ 폴더 내에는 위 지시순서를 따라 코드를 구현하기 위해 작성한 계획 문서들이 모여있다. 이를 참고하여 이전 단계 구현이 어떻게 되어있는지 참고한 뒤 다음 단계 구현을 진행한다.
+
+After finishing the implementation for the step, update TODO.md to reflect progress.
+
+Rules:
+- Check only the items that are actually implemented in code in this step.
+- Do not check items that are only planned, partially discussed, or deferred.
+- If only part of a section is done, check only the specific completed sub-items.
+- Keep TODO.md as an accurate progress record, not just a scope document.
+
+In your final report, include:
+1. files changed
+2. TODO.md items checked
+3. TODO.md items intentionally left unchecked
