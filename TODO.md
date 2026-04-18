@@ -230,6 +230,8 @@
 
 ## 9. Inbox, 상세, 답변 작성 흐름 구현
 
+`메모:` 이 섹션의 마지막 두 push 관련 항목은 현재 Inbox/상세/답변 제출 흐름 완료 여부와는 별개로, 이후 `Notifications and push` 단계에서 마무리할 deferred scope다. 체크 상태는 실제 push 구현 여부를 기준으로만 유지한다.
+
 - [x] `Inbox`에서 `concern_deliveries` 기반 목록 조회를 구현한다.
 - [x] 고민 상세 화면을 구현한다.
 - [x] 답변 작성 폼을 구현한다.
