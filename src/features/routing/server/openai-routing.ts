@@ -37,7 +37,7 @@ function findFirstMessageContent(payload: unknown) {
 
 export function buildOpenAiRoutingRequestBody(input: OpenAiRoutingInput) {
   return {
-    model: "gpt-5-mini",
+    model: "gpt-5.4-mini",
     input: [
       {
         role: "system",

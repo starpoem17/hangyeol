@@ -30,7 +30,7 @@ const routingInput = {
 describe("openai routing", () => {
   it("builds the exact structured-output request body", () => {
     expect(buildOpenAiRoutingRequestBody(routingInput)).toEqual({
-      model: "gpt-5-mini",
+      model: "gpt-5.4-mini",
       input: [
         {
           role: "system",
