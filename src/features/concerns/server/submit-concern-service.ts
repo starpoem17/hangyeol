@@ -74,6 +74,8 @@ export async function submitConcernWithDependencies(
   }
 
   if (!actorProfileId) {
+    // The request is authenticated and well-formed, but it conflicts with the
+    // app invariant that every auth user should already have a profiles row.
     return buildError(409, {
       code: "profile_not_found",
       userMessage: PROFILE_NOT_FOUND_MESSAGE,
