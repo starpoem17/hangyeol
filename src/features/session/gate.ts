@@ -18,7 +18,7 @@ export function decideGateRoute(input: GateInput): GateRoute {
     return "fatal-error";
   }
 
-  if (!input.hasSession || input.bootstrapStatus === "idle" || input.bootstrapStatus === "loading") {
+  if (!input.hasSession || input.bootstrapStatus === "loading") {
     return "loading";
   }
 

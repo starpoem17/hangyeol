@@ -62,6 +62,7 @@ export default function InboxDetailScreen() {
         return () => undefined;
       }
 
+      const resolvedDeliveryId = deliveryId;
       let isActive = true;
 
       async function load() {
@@ -69,7 +70,7 @@ export default function InboxDetailScreen() {
         setLoadErrorMessage(null);
 
         try {
-          let nextDelivery = await getInboxDeliveryDetail(supabase, deliveryId);
+          let nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
 
           if (!isActive) {
             return;
@@ -83,8 +84,8 @@ export default function InboxDetailScreen() {
           }
 
           if (nextDelivery.status === "assigned") {
-            await markConcernDeliveryOpened(supabase, deliveryId);
-            nextDelivery = await getInboxDeliveryDetail(supabase, deliveryId);
+            await markConcernDeliveryOpened(supabase, resolvedDeliveryId);
+            nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
 
             if (!isActive) {
               return;
@@ -98,7 +99,7 @@ export default function InboxDetailScreen() {
             }
           }
 
-          const nextResponse = await getInboxResponseByDeliveryId(supabase, deliveryId);
+          const nextResponse = await getInboxResponseByDeliveryId(supabase, resolvedDeliveryId);
 
           if (!isActive) {
             return;
@@ -150,11 +151,12 @@ export default function InboxDetailScreen() {
       return;
     }
 
+    const resolvedDeliveryId = deliveryId;
     setIsSubmitting(true);
 
     try {
       const result = await submitResponse(supabase, {
-        deliveryId,
+        deliveryId: resolvedDeliveryId,
         body: draftBody,
       });
 
@@ -166,8 +168,8 @@ export default function InboxDetailScreen() {
       setDraftBody("");
       setHasTriedSubmit(false);
 
-      const nextDelivery = await getInboxDeliveryDetail(supabase, deliveryId);
-      const nextResponse = await getInboxResponseByDeliveryId(supabase, deliveryId);
+      const nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
+      const nextResponse = await getInboxResponseByDeliveryId(supabase, resolvedDeliveryId);
 
       if (!nextDelivery) {
         setDelivery(null);
@@ -189,9 +191,9 @@ export default function InboxDetailScreen() {
         return;
       }
 
-      if (failure.kind === "application" && failure.code === "delivery_already_responded" && typeof deliveryId === "string") {
-        const nextDelivery = await getInboxDeliveryDetail(supabase, deliveryId);
-        const nextResponse = await getInboxResponseByDeliveryId(supabase, deliveryId);
+      if (failure.kind === "application" && failure.code === "delivery_already_responded") {
+        const nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
+        const nextResponse = await getInboxResponseByDeliveryId(supabase, resolvedDeliveryId);
 
         if (nextDelivery) {
           setDelivery(nextDelivery);

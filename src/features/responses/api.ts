@@ -52,5 +52,12 @@ export async function submitResponse(supabase: SupabaseClient, input: SubmitResp
     throw await interpretSubmitResponseError(error);
   }
 
+  if (!data) {
+    throw {
+      kind: "network",
+      userMessage: SUBMIT_RESPONSE_RETRY_MESSAGE,
+    } satisfies SubmitResponseFailure;
+  }
+
   return data;
 }

@@ -2,13 +2,14 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { listInboxDeliveries } from "@/features/inbox/api";
-import type { InboxDeliveryListItem } from "@/features/inbox/types";
+import { listMyConcerns } from "@/features/my-concerns/api";
+import type { MyConcernListItem } from "@/features/my-concerns/types";
 import { useSessionContext } from "@/features/session/context";
 import { supabase } from "@/lib/supabase";
 
-function formatRelativeDateTime(value: string) {
+function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -19,36 +20,17 @@ function formatRelativeDateTime(value: string) {
 function buildConcernPreview(body: string) {
   const normalized = body.replace(/\s+/g, " ").trim();
 
-  if (normalized.length <= 72) {
+  if (normalized.length <= 88) {
     return normalized;
   }
 
-  return `${normalized.slice(0, 72)}...`;
+  return `${normalized.slice(0, 88)}...`;
 }
 
-const STATUS_LABELS: Record<InboxDeliveryListItem["status"], string> = {
-  assigned: "새 고민",
-  opened: "읽는 중",
-  responded: "답변 완료",
-};
-
-function EntryActions({ onOpenNotifications, onOpenPostConcern }: { onOpenNotifications: () => void; onOpenPostConcern: () => void }) {
-  return (
-    <View style={styles.entryActions}>
-      <Pressable onPress={onOpenPostConcern} style={styles.secondaryButton}>
-        <Text style={styles.secondaryButtonText}>Post concern</Text>
-      </Pressable>
-      <Pressable onPress={onOpenNotifications} style={styles.secondaryButton}>
-        <Text style={styles.secondaryButtonText}>Notifications</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-export default function InboxListScreen() {
+export default function MyConcernsListScreen() {
   const router = useRouter();
   const { isLoading: isSessionLoading, session } = useSessionContext();
-  const [items, setItems] = useState<InboxDeliveryListItem[]>([]);
+  const [items, setItems] = useState<MyConcernListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -72,7 +54,7 @@ export default function InboxListScreen() {
         setErrorMessage(null);
 
         try {
-          const nextItems = await listInboxDeliveries(supabase);
+          const nextItems = await listMyConcerns(supabase);
 
           if (!isActive) {
             return;
@@ -84,7 +66,7 @@ export default function InboxListScreen() {
             return;
           }
 
-          setErrorMessage("Inbox를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.");
+          setErrorMessage("내가 작성한 고민을 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.");
         } finally {
           if (isActive) {
             setIsLoading(false);
@@ -104,7 +86,7 @@ export default function InboxListScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#111827" />
-        <Text style={styles.loadingText}>Inbox를 불러오고 있어요.</Text>
+        <Text style={styles.loadingText}>My concerns를 불러오고 있어요.</Text>
       </View>
     );
   }
@@ -112,13 +94,9 @@ export default function InboxListScreen() {
   if (errorMessage) {
     return (
       <View style={styles.centered}>
-        <EntryActions onOpenNotifications={() => router.push("/notifications")} onOpenPostConcern={() => router.push("/post-concern")} />
-        <Text style={styles.title}>Inbox를 불러오지 못했어요</Text>
+        <Text style={styles.title}>My concerns를 불러오지 못했어요</Text>
         <Text style={styles.description}>{errorMessage}</Text>
-        <Pressable
-          onPress={() => setReloadNonce((value) => value + 1)}
-          style={styles.primaryButton}
-        >
+        <Pressable onPress={() => setReloadNonce((value) => value + 1)} style={styles.primaryButton}>
           <Text style={styles.primaryButtonText}>다시 불러오기</Text>
         </Pressable>
       </View>
@@ -128,9 +106,8 @@ export default function InboxListScreen() {
   if (items.length === 0) {
     return (
       <View style={styles.centered}>
-        <EntryActions onOpenNotifications={() => router.push("/notifications")} onOpenPostConcern={() => router.push("/post-concern")} />
-        <Text style={styles.title}>아직 전달된 고민이 없어요</Text>
-        <Text style={styles.description}>새 고민이 도착하면 이곳에서 바로 확인할 수 있어요.</Text>
+        <Text style={styles.title}>아직 작성한 실제 고민이 없어요</Text>
+        <Text style={styles.description}>승인된 내 고민이 생기면 이곳에서 답변 도착 여부까지 함께 확인할 수 있어요.</Text>
       </View>
     );
   }
@@ -140,27 +117,20 @@ export default function InboxListScreen() {
       contentContainerStyle={styles.listContent}
       data={items}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={
-        <EntryActions onOpenNotifications={() => router.push("/notifications")} onOpenPostConcern={() => router.push("/post-concern")} />
-      }
       renderItem={({ item }) => (
         <Pressable
           onPress={() =>
             router.push({
-              pathname: "/inbox/[deliveryId]",
+              pathname: "/post-concern/my-concerns/[concernId]",
               params: {
-                deliveryId: item.id,
+                concernId: item.id,
               },
             })
           }
           style={styles.card}
         >
-          <View style={styles.cardHeader}>
-            <Text style={styles.badge}>{STATUS_LABELS[item.status]}</Text>
-            <Text style={styles.metaText}>{formatRelativeDateTime(item.deliveredAt)}</Text>
-          </View>
-          <Text style={styles.preview}>{buildConcernPreview(item.concern.body)}</Text>
-          <Text style={styles.subtleText}>전달 순서 {item.routingOrder}</Text>
+          <Text style={styles.metaText}>{formatDateTime(item.createdAt)}</Text>
+          <Text style={styles.preview}>{buildConcernPreview(item.body)}</Text>
         </Pressable>
       )}
     />
@@ -181,7 +151,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   title: {
-    marginTop: 28,
     color: "#0f172a",
     fontSize: 24,
     fontWeight: "700",
@@ -211,59 +180,22 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     gap: 12,
   },
-  entryActions: {
-    width: "100%",
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12,
-  },
-  secondaryButton: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  secondaryButtonText: {
-    color: "#0f172a",
-    fontSize: 14,
-    fontWeight: "700",
-  },
   card: {
-    backgroundColor: "#ffffff",
     borderRadius: 20,
-    padding: 18,
+    backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#e2e8f0",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-  },
-  badge: {
-    color: "#1d4ed8",
-    fontSize: 13,
-    fontWeight: "700",
+    padding: 18,
   },
   metaText: {
     color: "#64748b",
     fontSize: 13,
   },
   preview: {
-    marginTop: 14,
+    marginTop: 12,
     color: "#0f172a",
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "600",
-  },
-  subtleText: {
-    marginTop: 14,
-    color: "#64748b",
-    fontSize: 13,
   },
 });
