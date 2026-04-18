@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { routeConcernWithDependencies } from "./route-concern-service";
+import { buildRoutingCandidatePoolFromRows } from "./runtime-state";
 
 function buildState(overrides: Partial<Awaited<ReturnType<typeof buildBaseState>>> = {}) {
   return {
@@ -161,6 +162,103 @@ describe("routeConcernWithDependencies", () => {
       code: "routing_output_invalid",
     });
     expect(createConcernDeliveries).not.toHaveBeenCalled();
+  });
+
+  it("excludes runtime-flagged assigned and responded candidates before OpenAI selection", async () => {
+    const selectResponderProfileIds = vi.fn().mockResolvedValue({
+      ok: true,
+      responderProfileIds: ["33333333-3333-4333-8333-333333333333"],
+    });
+
+    const candidatePool = buildRoutingCandidatePoolFromRows({
+      candidateProfiles: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          onboarding_completed: true,
+          gender: "male",
+          is_active: true,
+          is_blocked: false,
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          onboarding_completed: true,
+          gender: "female",
+          is_active: true,
+          is_blocked: false,
+        },
+        {
+          id: "33333333-3333-4333-8333-333333333333",
+          onboarding_completed: true,
+          gender: "male",
+          is_active: true,
+          is_blocked: false,
+        },
+      ],
+      sameConcernDeliveries: [
+        {
+          id: "delivery-1",
+          recipient_profile_id: "11111111-1111-4111-8111-111111111111",
+        },
+        {
+          id: "delivery-2",
+          recipient_profile_id: "22222222-2222-4222-8222-222222222222",
+        },
+      ],
+      sameConcernResponses: [
+        {
+          delivery_id: "delivery-2",
+        },
+      ],
+      interestsByProfileId: new Map([
+        ["11111111-1111-4111-8111-111111111111", ["study"]],
+        ["22222222-2222-4222-8222-222222222222", ["career_path"]],
+        ["33333333-3333-4333-8333-333333333333", ["job_search"]],
+        ["078c2183-d8f4-4f35-b56e-cd79ee6f1337", ["study"]],
+      ]),
+      concernBodiesByProfileId: new Map([
+        ["11111111-1111-4111-8111-111111111111", ["고민 1"]],
+        ["22222222-2222-4222-8222-222222222222", ["고민 2"]],
+        ["33333333-3333-4333-8333-333333333333", ["고민 3"]],
+      ]),
+      responseBodiesByProfileId: new Map([
+        ["11111111-1111-4111-8111-111111111111", ["답변 1"]],
+        ["22222222-2222-4222-8222-222222222222", ["답변 2"]],
+        ["33333333-3333-4333-8333-333333333333", ["답변 3"]],
+      ]),
+    });
+
+    await routeConcernWithDependencies(
+      {
+        concernId: "46d20512-0e94-4bca-95f7-c47003f87f1c",
+      },
+      {
+        loadConcernRoutingState: vi.fn().mockResolvedValue(
+          buildState({
+            candidatePool,
+          }),
+        ),
+        selectResponderProfileIds,
+        createConcernDeliveries: vi.fn().mockResolvedValue(undefined),
+      },
+    );
+
+    expect(selectResponderProfileIds).toHaveBeenCalledWith({
+      required_delivery_count: 1,
+      concern_author: {
+        gender: "female",
+        interests: ["study"],
+        concern_body: "저에게 맞는 방향을 모르겠어요.",
+      },
+      eligible_candidates: [
+        {
+          profile_id: "33333333-3333-4333-8333-333333333333",
+          gender: "male",
+          interests: ["job_search"],
+          prior_concern_bodies: ["고민 3"],
+          prior_response_bodies: ["답변 3"],
+        },
+      ],
+    });
   });
 
   it("returns already_routed when the concern already has deliveries", async () => {
