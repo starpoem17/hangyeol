@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { CANONICAL_GENDERS } from "../onboarding/constants";
+import { CANONICAL_GENDERS } from "../onboarding/constants.ts";
 
 const GenderSchema = z.enum(CANONICAL_GENDERS);
 

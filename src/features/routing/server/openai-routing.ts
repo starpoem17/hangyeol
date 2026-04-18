@@ -1,4 +1,4 @@
-import { OpenAiRoutingOutputSchema, type OpenAiRoutingInput } from "../contracts";
+import { OpenAiRoutingOutputSchema, type OpenAiRoutingInput } from "../contracts.ts";
 
 export type OpenAiRoutingSelectionSuccess = {
   ok: true;

@@ -1,4 +1,4 @@
-import { RouteConcernRequestSchema, type OpenAiRoutingInput, type RouteConcernFailureCode } from "../contracts";
+import { RouteConcernRequestSchema, type OpenAiRoutingInput, type RouteConcernFailureCode } from "../contracts.ts";
 import {
   buildRoutingOpenAiInput,
   computeRequiredDeliveryCount,
@@ -6,7 +6,7 @@ import {
   isConcernAuthorRoutable,
   type RoutingAuthorRecord,
   type RoutingCandidatePoolRecord,
-} from "./eligibility";
+} from "./eligibility.ts";
 
 type ConcernRecord = {
   id: string;

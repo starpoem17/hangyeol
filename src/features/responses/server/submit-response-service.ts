@@ -7,9 +7,9 @@ import {
   SUBMIT_RESPONSE_RETRY_MESSAGE,
   type SubmitResponseErrorResponse,
   type SubmitResponseSuccessResponse,
-} from "../contracts";
-import { validateSubmitResponsePayload } from "../validation";
-import type { ModerationDecision } from "../../concerns/server/moderation";
+} from "../contracts.ts";
+import { validateSubmitResponsePayload } from "../validation.ts";
+import type { ModerationDecision } from "../../concerns/server/moderation.ts";
 
 export type SubmitResponseRpcResultCode = "blocked" | "approved" | "delivery_not_accessible" | "delivery_already_responded";
 

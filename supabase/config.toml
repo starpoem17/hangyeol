@@ -8,3 +8,6 @@ max_rows = 1000
 
 [db]
 major_version = 15
+
+[auth]
+enable_anonymous_sign_ins = true

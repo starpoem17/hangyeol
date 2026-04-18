@@ -5,9 +5,9 @@ import {
   SUBMIT_CONCERN_RETRY_MESSAGE,
   type SubmitConcernErrorResponse,
   type SubmitConcernSuccessResponse,
-} from "../contracts";
-import { validateSubmitConcernPayload } from "../validation";
-import type { ModerationDecision } from "./moderation";
+} from "../contracts.ts";
+import { validateSubmitConcernPayload } from "../validation.ts";
+import type { ModerationDecision } from "./moderation.ts";
 
 export type SubmitConcernServiceResult =
   | {

@@ -9,7 +9,7 @@ import {
   MAX_RESPONSE_BODY_LENGTH,
   MIN_RESPONSE_BODY_LENGTH,
   type SubmitResponseErrorResponse,
-} from "./contracts";
+} from "./contracts.ts";
 
 const DeliveryIdSchema = z.string().uuid();
 

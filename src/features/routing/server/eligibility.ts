@@ -1,4 +1,4 @@
-import { OpenAiRoutingInputSchema, RoutingAuthorSnapshotSchema, RoutingCandidateSnapshotSchema, type OpenAiRoutingInput } from "../contracts";
+import { OpenAiRoutingInputSchema, RoutingAuthorSnapshotSchema, RoutingCandidateSnapshotSchema, type OpenAiRoutingInput } from "../contracts.ts";
 
 export type RoutingAuthorRecord = {
   profileId: string;

@@ -4,7 +4,7 @@ import {
   INVALID_BODY_MESSAGE,
   MAX_CONCERN_BODY_LENGTH,
   type SubmitConcernErrorResponse,
-} from "./contracts";
+} from "./contracts.ts";
 
 export type ValidatedConcernSubmission = {
   rawBody: string;

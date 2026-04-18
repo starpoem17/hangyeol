@@ -1,4 +1,4 @@
-import type { RoutingAuthorRecord, RoutingCandidatePoolRecord } from "./eligibility";
+import type { RoutingAuthorRecord, RoutingCandidatePoolRecord } from "./eligibility.ts";
 
 export type ServiceClientLike = {
   from(table: string): {
