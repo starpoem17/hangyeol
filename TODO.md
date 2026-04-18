@@ -193,33 +193,33 @@
   - `확인` 버튼 제공
   - 작성 중이던 본문 유지
   - 수정 후 재전송 가능
-- [ ] 서버 라우팅 eligibility filter를 구현한다.
+- [x] 서버 라우팅 eligibility filter를 구현한다.
   - 작성자 제외
   - 온보딩 완료 사용자만 포함
   - 성별/관심분야 등 필수 routing attribute가 있는 사용자만 포함
   - blocked/inactive 사용자 제외
   - 동일 고민에 이미 배정된 사용자 제외
   - 동일 고민에 이미 답변한 사용자 제외
-- [ ] 라우팅 대상 수를 서버에서 먼저 계산한다.
+- [x] 라우팅 대상 수를 서버에서 먼저 계산한다.
   - 적격 풀이 3명 이상이면 required delivery count = 3
   - 적격 풀이 1명 또는 2명이면 required delivery count = 적격 인원 수
   - 적격 풀이 0명이면 no-delivery
-- [ ] OpenAI 라우팅 입력 계약을 그대로 구현한다.
+- [x] OpenAI 라우팅 입력 계약을 그대로 구현한다.
   - 고민 게시자 입력: 성별, 관심분야, 고민 본문
   - 후보 답변자 입력: 성별, 관심분야, 모든 과거 고민 게시 내용, 모든 과거 고민 답변 내용
   - 프로토타입 단계에서는 각 후보자의 모든 과거 인앱 기록을 LLM 입력 대상에 포함한다
-- [ ] OpenAI의 책임을 명확히 구현한다.
+- [x] OpenAI의 책임을 명확히 구현한다.
   - 적격 후보 풀 내부에서 semantic ranking/selection 수행
   - 최적 답변자가 없으면 차선 답변자를 선택
   - 적격 후보가 존재하는데 `no match`를 반환하는 동작 금지
   - eligibility/access control 규칙 override 금지
-- [ ] OpenAI 출력 계약을 schema-validated structured output으로 고정한다.
+- [x] OpenAI 출력 계약을 schema-validated structured output으로 고정한다.
   - 정확히 필요한 개수만큼의 ordered `responder_profile_ids` 배열 반환
   - 적격 풀이 3명 이상이면 top-3 profile id 정확히 3개 반환
   - 적격 풀이 1명 또는 2명이면 해당 전체 profile id만 반환
   - 필요한 개수보다 많은 후보 반환 금지
   - 서버가 ad hoc parsing 없이 바로 `concern_deliveries`를 생성할 수 있게 JSON schema 검증 사용
-- [ ] 서버 책임을 명확히 구현한다.
+- [x] 서버 책임을 명확히 구현한다.
   - 적격 후보 풀 정의
   - required delivery count 계산
   - OpenAI 호출
@@ -340,7 +340,7 @@
   - 예제 고민 feedback 생성 차단
   - push token self-only 관리
   - moderation audit 일반 접근 차단
-- [ ] 라우팅 테스트를 작성한다.
+- [x] 라우팅 테스트를 작성한다.
   - 적격 풀이 3명 이상이면 정확히 3명 반환
   - 적격 풀이 1명 또는 2명이면 적격자 전원을 반환
   - 적격 풀이 0명이면 그때만 no-delivery

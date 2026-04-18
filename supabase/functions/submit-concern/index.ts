@@ -8,8 +8,11 @@ import {
 } from "../../../src/features/concerns/contracts.ts";
 import { normalizeModerationResponse } from "../../../src/features/concerns/server/moderation.ts";
 import { submitConcernWithDependencies } from "../../../src/features/concerns/server/submit-concern-service.ts";
+import { selectRespondersWithOpenAi } from "../../../src/features/routing/server/openai-routing.ts";
+import { routeConcernWithDependencies } from "../../../src/features/routing/server/route-concern-service.ts";
 
 type JsonHeaders = Record<string, string>;
+type ServiceClient = ReturnType<typeof createServiceClient>;
 
 type ModerationRpcPayload = {
   p_actor_profile_id: string;
@@ -18,6 +21,36 @@ type ModerationRpcPayload = {
   p_blocked: boolean;
   p_category_summary: Record<string, unknown>;
   p_raw_provider_payload: unknown;
+};
+
+type ConcernRow = {
+  id: string;
+  source_type: "real" | "example";
+  author_profile_id: string | null;
+  body: string;
+};
+
+type ProfileRow = {
+  id: string;
+  onboarding_completed: boolean;
+  gender: string | null;
+  is_active: boolean;
+  is_blocked: boolean;
+};
+
+type InterestRow = {
+  profile_id: string;
+  interest_key: string;
+};
+
+type ConcernDeliveryRow = {
+  id: string;
+  recipient_profile_id: string;
+};
+
+type ResponseRow = {
+  delivery_id: string;
+  body: string;
 };
 
 const jsonHeaders: JsonHeaders = {
@@ -148,6 +181,281 @@ function buildServerErrorBody(): SubmitConcernErrorResponse {
   };
 }
 
+function groupStringsByProfileId(rows: Array<{ profileId: string; value: string }>) {
+  const grouped = new Map<string, string[]>();
+
+  for (const row of rows) {
+    const values = grouped.get(row.profileId) ?? [];
+    values.push(row.value);
+    grouped.set(row.profileId, values);
+  }
+
+  return grouped;
+}
+
+async function selectProfileInterests(serviceClient: ServiceClient, profileIds: string[]) {
+  if (profileIds.length === 0) {
+    return new Map<string, string[]>();
+  }
+
+  const { data, error } = await serviceClient
+    .from("profile_interests")
+    .select("profile_id, interest_key")
+    .in("profile_id", profileIds)
+    .order("interest_key", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return groupStringsByProfileId((data ?? []).map((row: InterestRow) => ({ profileId: row.profile_id, value: row.interest_key })));
+}
+
+async function selectCandidateConcernBodies(serviceClient: ServiceClient, candidateProfileIds: string[]) {
+  if (candidateProfileIds.length === 0) {
+    return new Map<string, string[]>();
+  }
+
+  const { data, error } = await serviceClient
+    .from("concerns")
+    .select("author_profile_id, body, created_at")
+    .eq("source_type", "real")
+    .in("author_profile_id", candidateProfileIds)
+    .order("created_at", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return groupStringsByProfileId(
+    (data ?? [])
+      .filter((row: { author_profile_id: string | null; body: string }) => typeof row.author_profile_id === "string")
+      .map((row: { author_profile_id: string; body: string }) => ({
+        profileId: row.author_profile_id,
+        value: row.body,
+      })),
+  );
+}
+
+async function selectCandidateResponseBodies(serviceClient: ServiceClient, candidateProfileIds: string[]) {
+  if (candidateProfileIds.length === 0) {
+    return new Map<string, string[]>();
+  }
+
+  const { data: deliveries, error: deliveriesError } = await serviceClient
+    .from("concern_deliveries")
+    .select("id, recipient_profile_id")
+    .in("recipient_profile_id", candidateProfileIds);
+
+  if (deliveriesError) {
+    throw deliveriesError;
+  }
+
+  const deliveryRows = (deliveries ?? []) as ConcernDeliveryRow[];
+
+  if (deliveryRows.length === 0) {
+    return new Map<string, string[]>();
+  }
+
+  const deliveryIdToRecipientId = new Map(deliveryRows.map((row) => [row.id, row.recipient_profile_id]));
+  const { data: responses, error: responsesError } = await serviceClient
+    .from("responses")
+    .select("delivery_id, body, created_at")
+    .in(
+      "delivery_id",
+      deliveryRows.map((row) => row.id),
+    )
+    .order("created_at", {
+      ascending: true,
+    });
+
+  if (responsesError) {
+    throw responsesError;
+  }
+
+  return groupStringsByProfileId(
+    (responses ?? []).flatMap((row: ResponseRow) => {
+      const profileId = deliveryIdToRecipientId.get(row.delivery_id);
+
+      return profileId
+        ? [
+            {
+              profileId,
+              value: row.body,
+            },
+          ]
+        : [];
+    }),
+  );
+}
+
+async function loadConcernRoutingState(serviceClient: ServiceClient, concernId: string) {
+  const { data: concern, error: concernError } = await serviceClient
+    .from("concerns")
+    .select("id, source_type, author_profile_id, body")
+    .eq("id", concernId)
+    .maybeSingle();
+
+  if (concernError) {
+    throw concernError;
+  }
+
+  if (!concern) {
+    return null;
+  }
+
+  const { data: currentDeliveries, error: currentDeliveriesError } = await serviceClient
+    .from("concern_deliveries")
+    .select("id, recipient_profile_id")
+    .eq("concern_id", concernId);
+
+  if (currentDeliveriesError) {
+    throw currentDeliveriesError;
+  }
+
+  const existingDeliveryCount = (currentDeliveries ?? []).length;
+  const normalizedConcern = concern as ConcernRow;
+
+  if (existingDeliveryCount > 0 || normalizedConcern.source_type !== "real" || !normalizedConcern.author_profile_id) {
+    return {
+      concern: {
+        id: normalizedConcern.id,
+        sourceType: normalizedConcern.source_type,
+        authorProfileId: normalizedConcern.author_profile_id,
+        body: normalizedConcern.body,
+      },
+      author: null,
+      existingDeliveryCount,
+      candidatePool: [],
+    };
+  }
+
+  const { data: authorProfile, error: authorProfileError } = await serviceClient
+    .from("profiles")
+    .select("id, onboarding_completed, gender, is_active, is_blocked")
+    .eq("id", normalizedConcern.author_profile_id)
+    .maybeSingle();
+
+  if (authorProfileError) {
+    throw authorProfileError;
+  }
+
+  if (!authorProfile) {
+    return {
+      concern: {
+        id: normalizedConcern.id,
+        sourceType: normalizedConcern.source_type,
+        authorProfileId: normalizedConcern.author_profile_id,
+        body: normalizedConcern.body,
+      },
+      author: null,
+      existingDeliveryCount,
+      candidatePool: [],
+    };
+  }
+
+  const { data: candidateProfiles, error: candidateProfilesError } = await serviceClient
+    .from("profiles")
+    .select("id, onboarding_completed, gender, is_active, is_blocked")
+    .neq("id", normalizedConcern.author_profile_id);
+
+  if (candidateProfilesError) {
+    throw candidateProfilesError;
+  }
+
+  const normalizedCandidateProfiles = (candidateProfiles ?? []) as ProfileRow[];
+  const candidateProfileIds = normalizedCandidateProfiles.map((profile) => profile.id);
+  const interestsByProfileId = await selectProfileInterests(serviceClient, [normalizedConcern.author_profile_id, ...candidateProfileIds]);
+  const concernBodiesByProfileId = await selectCandidateConcernBodies(serviceClient, candidateProfileIds);
+  const responseBodiesByProfileId = await selectCandidateResponseBodies(serviceClient, candidateProfileIds);
+
+  return {
+    concern: {
+      id: normalizedConcern.id,
+      sourceType: normalizedConcern.source_type,
+      authorProfileId: normalizedConcern.author_profile_id,
+      body: normalizedConcern.body,
+    },
+    author: {
+      profileId: authorProfile.id,
+      onboardingCompleted: authorProfile.onboarding_completed,
+      gender: authorProfile.gender,
+      interests: interestsByProfileId.get(authorProfile.id) ?? [],
+      isActive: authorProfile.is_active,
+      isBlocked: authorProfile.is_blocked,
+    },
+    existingDeliveryCount,
+    candidatePool: normalizedCandidateProfiles.map((profile) => ({
+      profileId: profile.id,
+      onboardingCompleted: profile.onboarding_completed,
+      gender: profile.gender,
+      interests: interestsByProfileId.get(profile.id) ?? [],
+      isActive: profile.is_active,
+      isBlocked: profile.is_blocked,
+      isConcernAuthor: false,
+      alreadyAssigned: false,
+      alreadyResponded: false,
+      priorConcernBodies: concernBodiesByProfileId.get(profile.id) ?? [],
+      priorResponseBodies: responseBodiesByProfileId.get(profile.id) ?? [],
+    })),
+  };
+}
+
+async function createConcernDeliveries(serviceClient: ServiceClient, concernId: string, responderProfileIds: string[]) {
+  const { error } = await serviceClient.rpc("route_concern_atomic_write", {
+    p_concern_id: concernId,
+    p_recipient_profile_ids: responderProfileIds,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function routeApprovedConcernSubmission(serviceClient: ServiceClient, concernId: string) {
+  try {
+    await routeConcernWithDependencies(
+      {
+        concernId,
+      },
+      {
+        loadConcernRoutingState: async (requestedConcernId) => loadConcernRoutingState(serviceClient, requestedConcernId),
+        selectResponderProfileIds: async (input) => {
+          const result = await selectRespondersWithOpenAi(input, {
+            apiKey: getRequiredEnv("OPENAI_API_KEY"),
+          });
+
+          if (!result.ok) {
+            return {
+              ok: false as const,
+              code: result.code,
+            };
+          }
+
+          return {
+            ok: true as const,
+            responderProfileIds: result.responderProfileIds,
+          };
+        },
+        createConcernDeliveries: async ({ concernId: routedConcernId, responderProfileIds }) =>
+          createConcernDeliveries(serviceClient, routedConcernId, responderProfileIds),
+        logInfo: (payload) => console.info(payload),
+        logError: (payload) => console.error(payload),
+      },
+    );
+  } catch (error) {
+    console.error({
+      event: "routing_unexpected_failure",
+      concernId,
+      errorMessage: error instanceof Error ? error.message : "unknown routing failure",
+    });
+  }
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", {
@@ -250,6 +558,9 @@ Deno.serve(async (request) => {
           return {
             concernId: data,
           };
+        },
+        routeApprovedConcernSubmission: async ({ concernId }) => {
+          await routeApprovedConcernSubmission(serviceClient, concernId);
         },
       },
     );
