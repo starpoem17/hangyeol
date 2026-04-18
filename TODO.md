@@ -230,15 +230,15 @@
 
 ## 9. Inbox, 상세, 답변 작성 흐름 구현
 
-- [ ] `Inbox`에서 `concern_deliveries` 기반 목록 조회를 구현한다.
-- [ ] 고민 상세 화면을 구현한다.
-- [ ] 답변 작성 폼을 구현한다.
-- [ ] 답변 제출 API를 구현한다.
+- [x] `Inbox`에서 `concern_deliveries` 기반 목록 조회를 구현한다.
+- [x] 고민 상세 화면을 구현한다.
+- [x] 답변 작성 폼을 구현한다.
+- [x] 답변 제출 API를 구현한다.
   - moderation 실행
   - 차단 시 audit만 남기고 제품 row 생성 금지
   - 승인 시 `responses` 생성
   - 대응 `concern_deliveries.status`를 `responded`로 변경
-- [ ] 부적절한 답변 차단 UX를 문서 기준으로 맞춘다.
+- [x] 부적절한 답변 차단 UX를 문서 기준으로 맞춘다.
   - 경고 문구 표시
   - 기존 작성 내용 유지
   - 수정 후 재전송 가능
