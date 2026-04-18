@@ -6,6 +6,7 @@ docs/ 내부 문서를 바탕으로 프로젝트 개발을 진행한다.
 
 Use TODO.md as the source of scope, but begin implementation in this execution order:
 
+Phases
 1. Supabase schema, migrations, DB constraints, and RLS
 2. Anonymous auth and onboarding
 3. Moderation audit storage and concern submission API
