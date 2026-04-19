@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.1";
 
-import { getProfileSummaryWithDependencies } from "../../../src/features/profile/server/profile-summary-service.ts";
+import { getProfileSummaryWithDependencies } from "../../../shared/profile/profile-summary-core.ts";
 
 type JsonHeaders = Record<string, string>;
 
