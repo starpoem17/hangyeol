@@ -1,7 +1,7 @@
 import {
   CANONICAL_INTEREST_KEY_SET,
   type CanonicalInterestKey,
-} from "../domain/canonical-interest-keys";
+} from "../domain/canonical-interest-keys.ts";
 
 export type ProfileSummaryGender = "male" | "female";
 
