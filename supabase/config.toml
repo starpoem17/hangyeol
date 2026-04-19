@@ -11,3 +11,6 @@ major_version = 15
 
 [auth]
 enable_anonymous_sign_ins = true
+
+[functions.get-profile-summary]
+verify_jwt = false

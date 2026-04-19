@@ -82,7 +82,22 @@ function interpretUpdateMyProfileInterestsError(error: RpcErrorShape): UpdateMyP
 }
 
 export async function getMyProfileSummary(supabase: SupabaseClient): Promise<MyProfileSummary | null> {
-  const { data, error } = await supabase.functions.invoke<MyProfileSummary | null>("get-profile-summary");
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+
+  console.log("GET_PROFILE_SUMMARY_INVOKE_AUTH", {
+    userId: sessionData.session?.user.id ?? null,
+    hasAccessToken: Boolean(accessToken),
+    accessTokenPrefix: accessToken?.slice(0, 12) ?? null,
+  });
+
+  const { data, error } = await supabase.functions.invoke<MyProfileSummary | null>("get-profile-summary", {
+    headers: accessToken
+      ? {
+          Authorization: `Bearer ${accessToken}`,
+        }
+      : undefined,
+  });
 
   if (error) {
     throw error;
