@@ -15,7 +15,9 @@ Phases
 7. Feedback flow
 8. Notifications and push
 9. Example concern supply flow
-10. Tests and deployment prep
+10. MVP completion
+11. Testing
+12. Distribution ready
 
 Do not start with UI polish first. Start with data model, access control, and routing-critical backend paths.
 
