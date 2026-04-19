@@ -277,6 +277,7 @@
 - [x] 예제 고민 seed 데이터를 준비한다.
 - [x] 예제 고민을 `concerns.source_type = example`로 저장한다.
 - [x] 예제 고민은 실제 사용자 고민처럼 보이게 `Inbox`에서 노출한다.
+  - 내부적으로는 저장된 example `routing_order`를 그대로 보존하되, Inbox 리스트 노출 순서는 display-only 정규화 순서를 사용하므로 반복 재사용 횟수가 Inbox 목록 동작을 통해 노출되지 않는다.
 - [x] 예제 고민은 실사용자 고민 라우팅의 fallback branch로 사용하지 않는다.
 - [x] 실제 고민의 적격 풀이 비어 있어 no-delivery가 발생해도, 이는 별도의 routing 결과로 유지하고 예제 고민 공급과 혼동하지 않는다.
 - [ ] 예제 고민은 push/feedback/solved-count/기본 분석 대상에서 제외한다.

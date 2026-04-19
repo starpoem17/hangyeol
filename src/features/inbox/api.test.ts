@@ -104,5 +104,17 @@ describe("listInboxDeliveries", () => {
     expect(from).toHaveBeenCalledWith("concern_deliveries");
     expect(inFilter).toHaveBeenCalledWith("status", ["assigned", "opened"]);
     expect(items.map((item) => item.id)).toEqual(["real-1", "example-1", "example-2"]);
+    expect(items.find((item) => item.id === "real-1")).toMatchObject({
+      routingOrder: 1,
+      displayRoutingOrder: 1,
+    });
+    expect(items.find((item) => item.id === "example-1")).toMatchObject({
+      routingOrder: 4,
+      displayRoutingOrder: 1,
+    });
+    expect(items.find((item) => item.id === "example-2")).toMatchObject({
+      routingOrder: 5,
+      displayRoutingOrder: 1,
+    });
   });
 });

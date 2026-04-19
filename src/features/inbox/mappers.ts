@@ -67,7 +67,12 @@ function mapInboxDelivery(row: InboxDeliveryRow): InboxDeliveryDetail {
 }
 
 export function mapInboxDeliveryListItem(row: InboxDeliveryRow): InboxDeliveryListItem {
-  return mapInboxDelivery(row);
+  const delivery = mapInboxDelivery(row);
+
+  return {
+    ...delivery,
+    displayRoutingOrder: delivery.concern.sourceType === "example" ? 1 : delivery.routingOrder,
+  };
 }
 
 export function mapInboxDeliveryDetail(row: InboxDeliveryRow): InboxDeliveryDetail {
@@ -110,10 +115,10 @@ export function compareInboxDeliveries(left: InboxDeliveryListItem, right: Inbox
     return deliveredAtDelta;
   }
 
-  const routingOrderDelta = left.routingOrder - right.routingOrder;
+  const displayRoutingOrderDelta = left.displayRoutingOrder - right.displayRoutingOrder;
 
-  if (routingOrderDelta !== 0) {
-    return routingOrderDelta;
+  if (displayRoutingOrderDelta !== 0) {
+    return displayRoutingOrderDelta;
   }
 
   return left.id.localeCompare(right.id);

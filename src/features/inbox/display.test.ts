@@ -11,6 +11,7 @@ function buildDelivery(overrides: Partial<InboxDeliveryListItem> = {}): InboxDel
     openedAt: null,
     respondedAt: null,
     routingOrder: 1,
+    displayRoutingOrder: 1,
     concern: {
       id: "concern-1",
       sourceType: "real",
@@ -92,6 +93,40 @@ describe("selectVisibleInboxDeliveries", () => {
     ]);
 
     expect(visibleItems.map((item) => item.id)).toEqual(["real-1", "real-2", "real-3"]);
+  });
+
+  it("treats example deliveries with equal normalized display order as ordered by id instead of raw routing order", () => {
+    const visibleItems = selectVisibleInboxDeliveries(
+      [
+        buildDelivery({
+          id: "example-b",
+          deliveredAt: "2026-04-19T10:00:00.000Z",
+          routingOrder: 4,
+          displayRoutingOrder: 1,
+          concern: {
+            id: "example-concern-b",
+            sourceType: "example",
+            body: "예제 고민 B",
+            createdAt: "2026-04-19T06:30:00.000Z",
+          },
+        }),
+        buildDelivery({
+          id: "example-a",
+          deliveredAt: "2026-04-19T10:00:00.000Z",
+          routingOrder: 12,
+          displayRoutingOrder: 1,
+          concern: {
+            id: "example-concern-a",
+            sourceType: "example",
+            body: "예제 고민 A",
+            createdAt: "2026-04-19T06:00:00.000Z",
+          },
+        }),
+      ],
+      2,
+    );
+
+    expect(visibleItems.map((item) => item.id)).toEqual(["example-a", "example-b"]);
   });
 });
 

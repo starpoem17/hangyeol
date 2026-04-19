@@ -15,10 +15,19 @@ export type InboxDeliveryListItem = {
   openedAt: string | null;
   respondedAt: string | null;
   routingOrder: number;
+  displayRoutingOrder: number;
   concern: InboxConcern;
 };
 
-export type InboxDeliveryDetail = InboxDeliveryListItem;
+export type InboxDeliveryDetail = {
+  id: string;
+  status: InboxDeliveryStatus;
+  deliveredAt: string;
+  openedAt: string | null;
+  respondedAt: string | null;
+  routingOrder: number;
+  concern: InboxConcern;
+};
 
 export type InboxResponse = {
   id: string;
