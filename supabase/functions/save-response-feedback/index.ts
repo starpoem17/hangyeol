@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.1";
 
+import { normalizeModerationResponse } from "../../../src/features/concerns/server/moderation.ts";
 import { sendNotificationPushes } from "../_shared/expo-push.ts";
 import { handleSaveResponseFeedbackRequest } from "./handler.ts";
 
@@ -65,6 +66,35 @@ async function requireAuthenticatedUserId(request: Request) {
   return user.id;
 }
 
+function normalizeCommentBody(commentBody: string | null) {
+  const normalized = (commentBody ?? "").trim();
+
+  return normalized.length > 0 ? normalized : null;
+}
+
+async function moderateFeedbackComment(commentBody: string) {
+  const openAiApiKey = getRequiredEnv("OPENAI_API_KEY");
+
+  const response = await fetch("https://api.openai.com/v1/moderations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openAiApiKey}`,
+    },
+    body: JSON.stringify({
+      model: "omni-moderation-latest",
+      input: commentBody,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`moderation request failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return normalizeModerationResponse(payload);
+}
+
 Deno.serve((request) =>
   handleSaveResponseFeedbackRequest(request, {
     requireAuthenticatedUserId,
@@ -80,11 +110,38 @@ Deno.serve((request) =>
     },
     async saveFeedback({ actorProfileId, responseId, liked, commentBody }) {
       const serviceClient = createServiceClient();
+      const normalizedCommentBody = normalizeCommentBody(commentBody);
+      const { data: existingFeedback, error: existingFeedbackError } = await serviceClient
+        .from("response_feedback")
+        .select("comment_body")
+        .eq("response_id", responseId)
+        .eq("concern_author_profile_id", actorProfileId)
+        .maybeSingle();
+
+      if (existingFeedbackError) {
+        throw existingFeedbackError;
+      }
+
+      const shouldModerateComment =
+        normalizedCommentBody !== null &&
+        normalizedCommentBody !== normalizeCommentBody((existingFeedback?.comment_body as string | null | undefined) ?? null);
+      const moderation = shouldModerateComment
+        ? await moderateFeedbackComment(normalizedCommentBody)
+        : {
+            blocked: false,
+            categorySummary: {
+              flagged_categories: [],
+            },
+            rawProviderPayload: {},
+          };
       const { data, error } = await serviceClient.rpc("save_response_feedback_with_notifications", {
         p_actor_profile_id: actorProfileId,
         p_response_id: responseId,
         p_liked: liked,
         p_comment_body: commentBody,
+        p_blocked: moderation.blocked,
+        p_category_summary: moderation.categorySummary,
+        p_raw_provider_payload: moderation.rawProviderPayload,
       });
 
       if (error) {

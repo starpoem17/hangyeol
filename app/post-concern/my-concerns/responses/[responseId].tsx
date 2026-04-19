@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   getMyConcernResponseDetail,
@@ -252,6 +252,17 @@ export default function MyConcernResponseDetailScreen() {
 
       if (saveResult.resultCode === "example_concern_not_allowed") {
         setFeedbackErrorMessage("예제 고민 답변에는 피드백을 남길 수 없어요.");
+        return;
+      }
+
+      if (saveResult.resultCode === "comment_blocked") {
+        const preservedState = screenStateRef.current;
+
+        if (preservedState) {
+          applyScreenState(applyBlockedOrFailedSavePreservation(preservedState));
+        }
+
+        Alert.alert("", saveResult.userMessage, [{ text: "확인" }]);
         return;
       }
 

@@ -2,6 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,6 +22,7 @@ import {
 import { shouldLoadInboxFeedback } from "@/features/inbox/display";
 import type { InboxDeliveryDetail, InboxResponse, InboxResponseFeedback } from "@/features/inbox/types";
 import { submitResponse, type SubmitResponseFailure } from "@/features/responses/api";
+import { RESPONSE_BLOCKED_MESSAGE, SUBMIT_RESPONSE_RETRY_MESSAGE } from "@/features/responses/contracts";
 import { validateSubmitResponsePayload } from "@/features/responses/validation";
 import { useSessionContext } from "@/features/session/context";
 import { supabase } from "@/lib/supabase";
@@ -182,8 +184,8 @@ export default function InboxDetailScreen() {
         body: draftBody,
       });
 
-      if (result.status === "blocked") {
-        setSubmitMessage(result.userMessage);
+      if (result.status === "blocked" && result.code === "moderation_blocked") {
+        Alert.alert("", RESPONSE_BLOCKED_MESSAGE, [{ text: "확인" }]);
         return;
       }
 
@@ -236,7 +238,7 @@ export default function InboxDetailScreen() {
         }
       }
 
-      setSubmitMessage(failure.userMessage);
+      setSubmitMessage(failure.kind === "application" ? SUBMIT_RESPONSE_RETRY_MESSAGE : failure.userMessage);
     } finally {
       setIsSubmitting(false);
     }

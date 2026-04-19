@@ -50,7 +50,7 @@ describe("saveMyConcernResponseFeedback", () => {
     });
   });
 
-  it("preserves no_op and example_concern_not_allowed result codes from the edge function", async () => {
+  it("preserves no_op, example_concern_not_allowed, and comment_blocked result codes from the edge function", async () => {
     const unchanged = createSupabaseMock({
       data: {
         resultCode: "no_op",
@@ -60,6 +60,13 @@ describe("saveMyConcernResponseFeedback", () => {
     const exampleConcern = createSupabaseMock({
       data: {
         resultCode: "example_concern_not_allowed",
+      },
+      error: null,
+    });
+    const blockedComment = createSupabaseMock({
+      data: {
+        resultCode: "comment_blocked",
+        userMessage: "부적절한 표현이 감지되었습니다.",
       },
       error: null,
     });
@@ -82,6 +89,17 @@ describe("saveMyConcernResponseFeedback", () => {
       }),
     ).resolves.toEqual({
       resultCode: "example_concern_not_allowed",
+    });
+
+    await expect(
+      saveMyConcernResponseFeedback(blockedComment.supabase as never, {
+        responseId: "response-4",
+        liked: true,
+        commentBody: "차단 대상 코멘트",
+      }),
+    ).resolves.toEqual({
+      resultCode: "comment_blocked",
+      userMessage: "부적절한 표현이 감지되었습니다.",
     });
   });
 
@@ -107,7 +125,7 @@ describe("saveMyConcernResponseFeedback", () => {
 
     await expect(
       saveMyConcernResponseFeedback(supabase as never, {
-        responseId: "response-4",
+        responseId: "response-5",
         liked: true,
         commentBody: null,
       }),

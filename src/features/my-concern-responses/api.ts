@@ -24,11 +24,14 @@ type SaveMyConcernResponseFeedbackInput = {
   commentBody: string | null;
 };
 
-export type SaveMyConcernResponseFeedbackResultCode = "saved" | "no_op" | "example_concern_not_allowed";
-
-export type SaveMyConcernResponseFeedbackResult = {
-  resultCode: SaveMyConcernResponseFeedbackResultCode;
-};
+export type SaveMyConcernResponseFeedbackResult =
+  | {
+      resultCode: "saved" | "no_op" | "example_concern_not_allowed";
+    }
+  | {
+      resultCode: "comment_blocked";
+      userMessage: string;
+    };
 
 export type SaveMyConcernResponseFeedbackFailure = {
   kind: "application" | "network";

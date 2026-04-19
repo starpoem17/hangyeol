@@ -19,6 +19,54 @@ function createRpcNotificationRow(
 }
 
 describe("handleSaveResponseFeedbackRequest", () => {
+  it("returns comment_blocked as a handled 200 response and emits no push jobs", async () => {
+    const requireAuthenticatedUserId = vi.fn(async () => "13ec7ee5-2fdb-4648-b3e9-d0d305f1386d");
+    const loadProfileId = vi.fn(async () => "13ec7ee5-2fdb-4648-b3e9-d0d305f1386d");
+    const saveFeedback = vi.fn(async () => [
+      createRpcNotificationRow({
+        feedback_id: null,
+        result_code: "comment_blocked",
+        notification_id: null,
+        notification_profile_id: null,
+        notification_type: null,
+        notification_related_entity_type: null,
+        notification_related_entity_id: null,
+      }),
+    ]);
+    const sendNotificationPushes = vi.fn(async () => undefined);
+    const logError = vi.fn();
+
+    const response = await handleSaveResponseFeedbackRequest(
+      new Request("http://localhost/save-response-feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer test-token",
+        },
+        body: JSON.stringify({
+          responseId: "e4e7ce0e-3673-4d5d-8774-13718ec7167f",
+          liked: true,
+          commentBody: "차단 대상 코멘트",
+        }),
+      }),
+      {
+        requireAuthenticatedUserId,
+        loadProfileId,
+        saveFeedback,
+        sendNotificationPushes,
+        logError,
+      },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      resultCode: "comment_blocked",
+      userMessage: "부적절한 표현이 감지되었습니다.",
+    });
+    expect(sendNotificationPushes).not.toHaveBeenCalled();
+    expect(logError).not.toHaveBeenCalled();
+  });
+
   it("preserves two notification rows from the RPC result and passes both push jobs through the edge-function path", async () => {
     const requireAuthenticatedUserId = vi.fn(async () => "13ec7ee5-2fdb-4648-b3e9-d0d305f1386d");
     const loadProfileId = vi.fn(async () => "13ec7ee5-2fdb-4648-b3e9-d0d305f1386d");

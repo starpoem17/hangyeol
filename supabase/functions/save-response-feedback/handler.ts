@@ -6,7 +6,7 @@ type JsonHeaders = Record<string, string>;
 
 export type SaveFeedbackRpcRow = {
   feedback_id: string | null;
-  result_code: "saved" | "no_op" | "example_concern_not_allowed" | "response_not_accessible";
+  result_code: "saved" | "no_op" | "example_concern_not_allowed" | "response_not_accessible" | "comment_blocked";
   notification_id: string | null;
   notification_profile_id: string | null;
   notification_type: NotificationType | null;
@@ -176,6 +176,13 @@ export async function handleSaveResponseFeedbackRequest(
       return jsonResponse(404, {
         code: "response_not_accessible",
         userMessage: "존재하지 않거나 접근할 수 없는 답변입니다.",
+      });
+    }
+
+    if (result.resultCode === "comment_blocked") {
+      return jsonResponse(200, {
+        resultCode: "comment_blocked",
+        userMessage: "부적절한 표현이 감지되었습니다.",
       });
     }
 
