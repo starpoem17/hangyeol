@@ -105,6 +105,8 @@ export async function fetchOwnProfileWithRetry(params: {
   const { supabase, session, isCurrent, delaysMs = PROFILE_FETCH_RETRY_DELAYS_MS } = params;
   let lastFailure: { errorCode?: string; errorMessage?: string } = {};
 
+  console.log("CURRENT_SESSION_USER_ID", session.user.id);
+
   for (let index = 0; index < delaysMs.length; index += 1) {
     const delayMs = delaysMs[index];
     const attempt = index + 1;
