@@ -146,7 +146,7 @@ export function parseOpenAiRoutingResponse(
 export function validateOpenAiResponderSelection(input: {
   responderProfileIds: string[];
   eligibleProfileIds: string[];
-  requiredDeliveryCount: 1 | 2 | 3;
+  requiredDeliveryCount: 3;
 }): OpenAiRoutingSelectionSuccess | OpenAiRoutingSelectionFailure {
   const eligibleProfileIds = new Set(input.eligibleProfileIds);
   const uniqueProfileIds = new Set(input.responderProfileIds);

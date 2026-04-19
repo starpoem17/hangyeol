@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildOpenAiRoutingRequestBody, parseOpenAiRoutingResponse, selectRespondersWithOpenAi } from "./openai-routing";
 
 const routingInput = {
-  required_delivery_count: 2 as const,
+  required_delivery_count: 3 as const,
   concern_author: {
     gender: "female" as const,
     interests: ["study"],
@@ -23,6 +23,13 @@ const routingInput = {
       interests: ["career_path"],
       prior_concern_bodies: ["과거 고민 2"],
       prior_response_bodies: ["과거 답변 2"],
+    },
+    {
+      profile_id: "4f121b58-5070-4679-af94-02505ab4f7ec",
+      gender: "male" as const,
+      interests: ["anxiety"],
+      prior_concern_bodies: ["과거 고민 3"],
+      prior_response_bodies: ["과거 답변 3"],
     },
   ],
 };
@@ -67,8 +74,8 @@ describe("openai routing", () => {
                   type: "string",
                   format: "uuid",
                 },
-                minItems: 2,
-                maxItems: 2,
+                minItems: 3,
+                maxItems: 3,
               },
             },
             required: ["responder_profile_ids"],
@@ -225,14 +232,22 @@ describe("openai routing", () => {
       {
         responder_profile_ids: [
           "13d8682f-0ba5-4268-8148-83c0d6d7c261",
+          routingInput.eligible_candidates[0].profile_id,
           routingInput.eligible_candidates[1].profile_id,
         ],
       },
       {
-        responder_profile_ids: [routingInput.eligible_candidates[0].profile_id, routingInput.eligible_candidates[0].profile_id],
+        responder_profile_ids: [
+          routingInput.eligible_candidates[0].profile_id,
+          routingInput.eligible_candidates[0].profile_id,
+          routingInput.eligible_candidates[1].profile_id,
+        ],
       },
       {
-        responder_profile_ids: [routingInput.eligible_candidates[0].profile_id],
+        responder_profile_ids: [
+          routingInput.eligible_candidates[0].profile_id,
+          routingInput.eligible_candidates[1].profile_id,
+        ],
       },
       {
         responder_profile_ids: [

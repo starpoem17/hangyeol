@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.56.1";
 
 import { normalizeModerationResponse } from "../../../src/features/concerns/server/moderation.ts";
+import { logEvent } from "../_shared/event-log.ts";
 import { sendNotificationPushes } from "../_shared/expo-push.ts";
 import { handleSaveResponseFeedbackRequest } from "./handler.ts";
 
@@ -152,7 +153,10 @@ Deno.serve((request) =>
     },
     async sendNotificationPushes(notifications) {
       const serviceClient = createServiceClient();
-      await sendNotificationPushes(serviceClient, notifications);
+      return sendNotificationPushes(serviceClient, notifications);
+    },
+    logEvent(payload) {
+      logEvent(payload);
     },
     logError(message, error) {
       console.error(message, error);

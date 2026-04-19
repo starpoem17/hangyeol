@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { logError, logInfo, logWarn } from "@/lib/logger";
+import { FIRST_REAL_APP_ROUTE } from "@/features/navigation/contracts";
 import { supabase } from "@/lib/supabase";
 import { createBootstrapRunController, fetchOwnProfileWithRetry, getBootstrapKey } from "@/features/session/bootstrap";
 import { useSessionContext } from "@/features/session/context";
@@ -131,7 +132,7 @@ export default function IndexScreen() {
     }
 
     if (gateRoute === "inbox") {
-      router.replace("/inbox");
+      router.replace(FIRST_REAL_APP_ROUTE);
     }
   }, [gateRoute, router]);
 

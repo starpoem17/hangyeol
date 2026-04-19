@@ -97,10 +97,10 @@ describe("eligibility helpers", () => {
     ]);
   });
 
-  it("computes exact delivery counts from the eligible pool size", () => {
-    expect(computeRequiredDeliveryCount(0)).toBe(0);
-    expect(computeRequiredDeliveryCount(1)).toBe(1);
-    expect(computeRequiredDeliveryCount(2)).toBe(2);
+  it("keeps the initial real-concern routing target fixed to exactly three recipients", () => {
+    expect(computeRequiredDeliveryCount(0)).toBe(3);
+    expect(computeRequiredDeliveryCount(1)).toBe(3);
+    expect(computeRequiredDeliveryCount(2)).toBe(3);
     expect(computeRequiredDeliveryCount(3)).toBe(3);
     expect(computeRequiredDeliveryCount(8)).toBe(3);
   });
@@ -111,7 +111,7 @@ describe("eligibility helpers", () => {
         interests: ["career_path", "study", "career_path"],
       }),
       concernBody: "  지금 진로가 너무 고민돼요.  ",
-      requiredDeliveryCount: 1,
+      requiredDeliveryCount: 3,
       eligibleCandidates: filterEligibleRoutingCandidates([
         buildCandidate({
           interests: ["study", "job_search", "job_search"],
@@ -122,7 +122,7 @@ describe("eligibility helpers", () => {
     });
 
     expect(input).toEqual({
-      required_delivery_count: 1,
+      required_delivery_count: 3,
       concern_author: {
         gender: "female",
         interests: ["career_path", "study"],

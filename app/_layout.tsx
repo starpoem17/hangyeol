@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { markNotificationRead } from "@/features/notifications/api";
 import { getNotificationNavigationTarget, parseNotificationPushPayload } from "@/features/notifications/navigation";
+import { HIDDEN_BOOTSTRAP_ROUTE_NAMES, buildSegmentPath, isTabBarVisiblePath } from "@/features/navigation/contracts";
 import { usePushRegistration } from "@/features/notifications/push-registration";
 import { SessionProvider, useSessionContext } from "@/features/session/context";
 import { supabase } from "@/lib/supabase";
@@ -71,12 +72,8 @@ function RootEffects() {
 
 function RootTabs() {
   const segments = useSegments();
-  const currentPath = `/${segments.join("/")}`;
-  const showTabBar =
-    currentPath === "/inbox" ||
-    currentPath === "/post-concern" ||
-    currentPath === "/notifications" ||
-    currentPath === "/profile";
+  const currentPath = buildSegmentPath(segments);
+  const showTabBar = isTabBarVisiblePath(currentPath);
 
   return (
     <Tabs
@@ -96,13 +93,13 @@ function RootTabs() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name={HIDDEN_BOOTSTRAP_ROUTE_NAMES[0]}
         options={{
           href: null,
         }}
       />
       <Tabs.Screen
-        name="onboarding"
+        name={HIDDEN_BOOTSTRAP_ROUTE_NAMES[1]}
         options={{
           href: null,
         }}

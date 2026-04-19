@@ -72,7 +72,7 @@ function buildBaseState() {
 }
 
 describe("routeConcernWithDependencies", () => {
-  it("returns no_delivery without calling OpenAI when the eligible pool is empty", async () => {
+  it("treats an allowable pool below three as an explicit invariant failure", async () => {
     const selectResponderProfileIds = vi.fn();
     const createConcernDeliveries = vi.fn();
 
@@ -83,7 +83,7 @@ describe("routeConcernWithDependencies", () => {
       {
         loadConcernRoutingState: vi.fn().mockResolvedValue(
           buildState({
-            candidatePool: [],
+            candidatePool: [buildBaseState().candidatePool[0]],
           }),
         ),
         selectResponderProfileIds,
@@ -92,11 +92,8 @@ describe("routeConcernWithDependencies", () => {
     );
 
     expect(result).toEqual({
-      ok: true,
-      status: "no_delivery",
-      concernId: "46d20512-0e94-4bca-95f7-c47003f87f1c",
-      eligibleCandidateCount: 0,
-      deliveryCount: 0,
+      ok: false,
+      code: "routing_invariant_allowable_pool_too_small",
     });
     expect(selectResponderProfileIds).not.toHaveBeenCalled();
     expect(createConcernDeliveries).not.toHaveBeenCalled();
@@ -164,12 +161,8 @@ describe("routeConcernWithDependencies", () => {
     expect(createConcernDeliveries).not.toHaveBeenCalled();
   });
 
-  it("excludes runtime-flagged assigned and responded candidates before OpenAI selection", async () => {
-    const selectResponderProfileIds = vi.fn().mockResolvedValue({
-      ok: true,
-      responderProfileIds: ["33333333-3333-4333-8333-333333333333"],
-    });
-
+  it("never leaves a normal one-recipient routing path after eligibility filtering", async () => {
+    const selectResponderProfileIds = vi.fn();
     const candidatePool = buildRoutingCandidatePoolFromRows({
       candidateProfiles: [
         {
@@ -227,7 +220,7 @@ describe("routeConcernWithDependencies", () => {
       ]),
     });
 
-    await routeConcernWithDependencies(
+    const result = await routeConcernWithDependencies(
       {
         concernId: "46d20512-0e94-4bca-95f7-c47003f87f1c",
       },
@@ -242,23 +235,11 @@ describe("routeConcernWithDependencies", () => {
       },
     );
 
-    expect(selectResponderProfileIds).toHaveBeenCalledWith({
-      required_delivery_count: 1,
-      concern_author: {
-        gender: "female",
-        interests: ["study"],
-        concern_body: "저에게 맞는 방향을 모르겠어요.",
-      },
-      eligible_candidates: [
-        {
-          profile_id: "33333333-3333-4333-8333-333333333333",
-          gender: "male",
-          interests: ["job_search"],
-          prior_concern_bodies: ["고민 3"],
-          prior_response_bodies: ["답변 3"],
-        },
-      ],
+    expect(result).toEqual({
+      ok: false,
+      code: "routing_invariant_allowable_pool_too_small",
     });
+    expect(selectResponderProfileIds).not.toHaveBeenCalled();
   });
 
   it("returns already_routed when the concern already has deliveries", async () => {
@@ -320,12 +301,16 @@ describe("routeConcernWithDependencies", () => {
       {
         loadConcernRoutingState: vi.fn().mockResolvedValue(
           buildState({
-            candidatePool: [buildBaseState().candidatePool[0]],
+            candidatePool: buildBaseState().candidatePool,
           }),
         ),
         selectResponderProfileIds: vi.fn().mockResolvedValue({
           ok: true,
-          responderProfileIds: ["11913c12-9d5d-4e4f-878d-e2a0e8b2497d"],
+          responderProfileIds: [
+            "11913c12-9d5d-4e4f-878d-e2a0e8b2497d",
+            "d96dd4e6-b6cc-41a9-91db-21be32fb85da",
+            "89617967-fab4-445e-a20e-2e93eadc1d84",
+          ],
         }),
         createConcernDeliveries: vi.fn().mockRejectedValue(new Error("insert failed")),
       },

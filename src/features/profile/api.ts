@@ -6,16 +6,6 @@ import {
   type InterestKey,
 } from "../onboarding/constants";
 
-type ProfileRow = {
-  id: string;
-  gender: GenderKey | null;
-  onboarding_completed: boolean;
-};
-
-type ProfileInterestRow = {
-  interest_key: string;
-};
-
 type RpcErrorShape = Pick<PostgrestError, "code" | "details" | "message"> | Pick<AuthError, "code" | "message">;
 
 export type UpdateMyProfileInterestsErrorTag =
@@ -91,53 +81,22 @@ function interpretUpdateMyProfileInterestsError(error: RpcErrorShape): UpdateMyP
   };
 }
 
-function normalizeSolvedCount(value: unknown) {
-  const parsed = typeof value === "number" ? value : Number(value ?? 0);
-
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return 0;
-  }
-
-  return Math.trunc(parsed);
-}
-
-function mapInterestKeys(rows: ProfileInterestRow[] | null | undefined): InterestKey[] {
-  return (rows ?? [])
-    .map((row) => row.interest_key)
-    .filter((interestKey): interestKey is InterestKey => CANONICAL_INTEREST_KEY_SET.has(interestKey));
-}
-
 export async function getMyProfileSummary(supabase: SupabaseClient): Promise<MyProfileSummary | null> {
-  const [profileResult, interestsResult, solvedCountResult] = await Promise.all([
-    supabase.from("profiles").select("id, gender, onboarding_completed").maybeSingle(),
-    supabase.from("profile_interests").select("interest_key").order("interest_key", { ascending: true }),
-    supabase.rpc("get_my_solved_count"),
-  ]);
+  const { data, error } = await supabase.functions.invoke<MyProfileSummary | null>("get-profile-summary");
 
-  if (profileResult.error) {
-    throw profileResult.error;
+  if (error) {
+    throw error;
   }
 
-  if (interestsResult.error) {
-    throw interestsResult.error;
-  }
-
-  if (solvedCountResult.error) {
-    throw solvedCountResult.error;
-  }
-
-  const row = profileResult.data as ProfileRow | null;
-
-  if (!row) {
+  if (!data) {
     return null;
   }
 
   return {
-    id: row.id,
-    gender: row.gender,
-    onboardingCompleted: row.onboarding_completed,
-    interestKeys: mapInterestKeys(interestsResult.data as ProfileInterestRow[] | null | undefined),
-    solvedCount: normalizeSolvedCount(solvedCountResult.data),
+    ...data,
+    interestKeys: data.interestKeys.filter((interestKey): interestKey is InterestKey =>
+      CANONICAL_INTEREST_KEY_SET.has(interestKey),
+    ),
   };
 }
 

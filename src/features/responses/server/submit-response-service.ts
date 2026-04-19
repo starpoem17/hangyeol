@@ -51,6 +51,7 @@ export type PersistResponseSubmissionResult = {
   responseId: string | null;
   resultCode: SubmitResponseRpcResultCode;
   notificationCreated: boolean;
+  concernSourceType: "real" | "example" | null;
   notifications: PersistedNotification[];
 };
 

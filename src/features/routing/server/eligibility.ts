@@ -82,19 +82,7 @@ export function filterEligibleRoutingCandidates(candidates: RoutingCandidatePool
     }));
 }
 
-export function computeRequiredDeliveryCount(eligibleCandidateCount: number): 0 | 1 | 2 | 3 {
-  if (eligibleCandidateCount <= 0) {
-    return 0;
-  }
-
-  if (eligibleCandidateCount === 1) {
-    return 1;
-  }
-
-  if (eligibleCandidateCount === 2) {
-    return 2;
-  }
-
+export function computeRequiredDeliveryCount(_eligibleCandidateCount: number): 3 {
   return 3;
 }
 
@@ -102,7 +90,7 @@ export function buildRoutingOpenAiInput(input: {
   author: RoutingAuthorRecord;
   concernBody: string;
   eligibleCandidates: EligibleRoutingCandidateRecord[];
-  requiredDeliveryCount: 1 | 2 | 3;
+  requiredDeliveryCount: 3;
 }): OpenAiRoutingInput {
   const author = RoutingAuthorSnapshotSchema.parse({
     gender: input.author.gender,

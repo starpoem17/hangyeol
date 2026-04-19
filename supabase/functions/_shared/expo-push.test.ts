@@ -62,22 +62,32 @@ describe("sendNotificationPushes", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await sendNotificationPushes(client, [
-      {
-        notificationId: "9bcd2d79-c770-4125-ae1e-aa2c083c2076",
-        profileId: "9d609f84-736f-4d3b-ac8b-7c2ca0fecb64",
-        type: "response_liked",
-        relatedEntityType: "concern_delivery",
-        relatedEntityId: "bf1b23d1-a60f-4fda-ac9e-f8df3b150443",
-      },
-      {
-        notificationId: "cf71e8aa-db17-47d0-9e7c-cd155fd25088",
-        profileId: "9d609f84-736f-4d3b-ac8b-7c2ca0fecb64",
-        type: "response_commented",
-        relatedEntityType: "concern_delivery",
-        relatedEntityId: "bf1b23d1-a60f-4fda-ac9e-f8df3b150443",
-      },
-    ]);
+    await expect(
+      sendNotificationPushes(client, [
+        {
+          notificationId: "9bcd2d79-c770-4125-ae1e-aa2c083c2076",
+          profileId: "9d609f84-736f-4d3b-ac8b-7c2ca0fecb64",
+          type: "response_liked",
+          relatedEntityType: "concern_delivery",
+          relatedEntityId: "bf1b23d1-a60f-4fda-ac9e-f8df3b150443",
+        },
+        {
+          notificationId: "cf71e8aa-db17-47d0-9e7c-cd155fd25088",
+          profileId: "9d609f84-736f-4d3b-ac8b-7c2ca0fecb64",
+          type: "response_commented",
+          relatedEntityType: "concern_delivery",
+          relatedEntityId: "bf1b23d1-a60f-4fda-ac9e-f8df3b150443",
+        },
+      ]),
+    ).resolves.toEqual({
+      requestedNotificationCount: 2,
+      resolvedTokenCount: 1,
+      dispatchedMessageCount: 2,
+      successCount: 2,
+      failureCount: 0,
+      deletedTokenCount: 0,
+      skippedReason: "none",
+    });
 
     expect(selectIn).toHaveBeenCalledWith("profile_id", ["9d609f84-736f-4d3b-ac8b-7c2ca0fecb64"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);

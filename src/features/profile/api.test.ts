@@ -3,21 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { getMyProfileSummary, updateMyProfileInterests } from "./api";
 
 function createSupabaseMock(options?: {
-  profile?: { data: unknown; error: Error | null };
-  interests?: { data: unknown; error: Error | null };
-  solvedCount?: { data: unknown; error: Error | null };
+  profileSummary?: { data: unknown; error: Error | null };
   updateInterests?: { data?: unknown; error: Error | null };
 }) {
-  const profile = options?.profile ?? {
+  const profileSummary = options?.profileSummary ?? {
     data: null,
-    error: null,
-  };
-  const interests = options?.interests ?? {
-    data: [],
-    error: null,
-  };
-  const solvedCount = options?.solvedCount ?? {
-    data: 0,
     error: null,
   };
   const updateInterests = options?.updateInterests ?? {
@@ -25,32 +15,15 @@ function createSupabaseMock(options?: {
     error: null,
   };
 
-  const profilesMaybeSingle = vi.fn(async () => profile);
-  const profileInterestsOrder = vi.fn(async () => interests);
-  const from = vi.fn((table: string) => {
-    if (table === "profiles") {
-      return {
-        select: vi.fn(() => ({
-          maybeSingle: profilesMaybeSingle,
-        })),
-      };
+  const invoke = vi.fn(async (name: string) => {
+    if (name === "get-profile-summary") {
+      return profileSummary;
     }
 
-    if (table === "profile_interests") {
-      return {
-        select: vi.fn(() => ({
-          order: profileInterestsOrder,
-        })),
-      };
-    }
-
-    throw new Error(`Unexpected table: ${table}`);
+    throw new Error(`Unexpected function invoke: ${name}`);
   });
-  const rpc = vi.fn(async (name: string, args?: unknown) => {
-    if (name === "get_my_solved_count") {
-      return solvedCount;
-    }
 
+  const rpc = vi.fn(async (name: string, args?: unknown) => {
     if (name === "update_my_profile_interests") {
       return {
         ...updateInterests,
@@ -64,37 +37,27 @@ function createSupabaseMock(options?: {
 
   return {
     supabase: {
-      from,
+      functions: {
+        invoke,
+      },
       rpc,
     },
-    from,
-    profilesMaybeSingle,
-    profileInterestsOrder,
+    invoke,
     rpc,
   };
 }
 
 describe("getMyProfileSummary", () => {
-  it("combines the own profile row, own interest rows, and solved-count RPC into a single summary", async () => {
+  it("preserves the existing app-facing summary shape through the Edge Function", async () => {
     const { supabase } = createSupabaseMock({
-      profile: {
+      profileSummary: {
         data: {
           id: "profile-1",
-          gender: "female",
-          onboarding_completed: true,
+          gender: "female" as const,
+          onboardingCompleted: true,
+          interestKeys: ["anxiety", "future", "unknown_interest"],
+          solvedCount: 3,
         },
-        error: null,
-      },
-      interests: {
-        data: [
-          { interest_key: "anxiety" },
-          { interest_key: "future" },
-          { interest_key: "unknown_interest" },
-        ],
-        error: null,
-      },
-      solvedCount: {
-        data: "3",
         error: null,
       },
     });

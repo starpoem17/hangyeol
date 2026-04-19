@@ -102,6 +102,11 @@ export default function OnboardingScreen() {
       });
 
       if (profileResult.kind === "success" && profileResult.profile.onboardingCompleted && profileResult.profile.gender) {
+        logInfo({
+          event: "onboarding_completed",
+          stage: "onboarding",
+          ...sessionLogPayload,
+        });
         router.replace("/inbox");
         return;
       }

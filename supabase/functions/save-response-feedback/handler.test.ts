@@ -33,7 +33,16 @@ describe("handleSaveResponseFeedbackRequest", () => {
         notification_related_entity_id: null,
       }),
     ]);
-    const sendNotificationPushes = vi.fn(async () => undefined);
+    const sendNotificationPushes = vi.fn(async () => ({
+      requestedNotificationCount: 0,
+      resolvedTokenCount: 0,
+      dispatchedMessageCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      deletedTokenCount: 0,
+      skippedReason: "no_notifications",
+    }));
+    const logEvent = vi.fn();
     const logError = vi.fn();
 
     const response = await handleSaveResponseFeedbackRequest(
@@ -54,6 +63,7 @@ describe("handleSaveResponseFeedbackRequest", () => {
         loadProfileId,
         saveFeedback,
         sendNotificationPushes,
+        logEvent,
         logError,
       },
     );
@@ -65,6 +75,9 @@ describe("handleSaveResponseFeedbackRequest", () => {
     });
     expect(sendNotificationPushes).not.toHaveBeenCalled();
     expect(logError).not.toHaveBeenCalled();
+    expect(logEvent).toHaveBeenCalledWith({
+      event: "feedback_comment_blocked",
+    });
   });
 
   it("preserves two notification rows from the RPC result and passes both push jobs through the edge-function path", async () => {
@@ -80,7 +93,16 @@ describe("handleSaveResponseFeedbackRequest", () => {
         notification_type: "response_commented",
       }),
     ]);
-    const sendNotificationPushes = vi.fn(async () => undefined);
+    const sendNotificationPushes = vi.fn(async () => ({
+      requestedNotificationCount: 2,
+      resolvedTokenCount: 1,
+      dispatchedMessageCount: 2,
+      successCount: 2,
+      failureCount: 0,
+      deletedTokenCount: 0,
+      skippedReason: "none",
+    }));
+    const logEvent = vi.fn();
     const logError = vi.fn();
 
     const response = await handleSaveResponseFeedbackRequest(
@@ -101,6 +123,7 @@ describe("handleSaveResponseFeedbackRequest", () => {
         loadProfileId,
         saveFeedback,
         sendNotificationPushes,
+        logEvent,
         logError,
       },
     );
@@ -133,5 +156,12 @@ describe("handleSaveResponseFeedbackRequest", () => {
       },
     ]);
     expect(logError).not.toHaveBeenCalled();
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "feedback_push_completed",
+        requestedNotificationCount: 2,
+        dispatchedMessageCount: 2,
+      }),
+    );
   });
 });

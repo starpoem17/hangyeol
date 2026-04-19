@@ -55,6 +55,11 @@ export type RouteConcernState = {
   candidatePool: RoutingCandidatePoolRecord[];
 };
 
+export type DraftConcernRoutingState = {
+  author: RoutingAuthorRecord | null;
+  candidatePool: RoutingCandidatePoolRecord[];
+};
+
 function groupStringsByProfileId(rows: Array<{ profileId: string; value: string }>) {
   const grouped = new Map<string, string[]>();
 
@@ -215,6 +220,59 @@ async function selectSameConcernResponses(serviceClient: ServiceClientLike, deli
   return (data ?? []) as SameConcernResponseRow[];
 }
 
+async function loadRoutingDirectoryState(serviceClient: ServiceClientLike, authorProfileId: string): Promise<DraftConcernRoutingState> {
+  const { data: authorProfile, error: authorProfileError } = await serviceClient
+    .from("profiles")
+    .select("id, onboarding_completed, gender, is_active, is_blocked")
+    .eq("id", authorProfileId)
+    .maybeSingle();
+
+  if (authorProfileError) {
+    throw authorProfileError;
+  }
+
+  if (!authorProfile) {
+    return {
+      author: null,
+      candidatePool: [],
+    };
+  }
+
+  const { data: candidateProfiles, error: candidateProfilesError } = await serviceClient
+    .from("profiles")
+    .select("id, onboarding_completed, gender, is_active, is_blocked")
+    .neq("id", authorProfileId);
+
+  if (candidateProfilesError) {
+    throw candidateProfilesError;
+  }
+
+  const normalizedCandidateProfiles = (candidateProfiles ?? []) as ProfileRow[];
+  const candidateProfileIds = normalizedCandidateProfiles.map((profile) => profile.id);
+  const interestsByProfileId = await selectProfileInterests(serviceClient, [authorProfileId, ...candidateProfileIds]);
+  const concernBodiesByProfileId = await selectCandidateConcernBodies(serviceClient, candidateProfileIds);
+  const responseBodiesByProfileId = await selectCandidateResponseBodies(serviceClient, candidateProfileIds);
+
+  return {
+    author: {
+      profileId: authorProfile.id,
+      onboardingCompleted: authorProfile.onboarding_completed,
+      gender: authorProfile.gender,
+      interests: interestsByProfileId.get(authorProfile.id) ?? [],
+      isActive: authorProfile.is_active,
+      isBlocked: authorProfile.is_blocked,
+    },
+    candidatePool: buildRoutingCandidatePoolFromRows({
+      candidateProfiles: normalizedCandidateProfiles,
+      sameConcernDeliveries: [],
+      sameConcernResponses: [],
+      interestsByProfileId,
+      concernBodiesByProfileId,
+      responseBodiesByProfileId,
+    }),
+  };
+}
+
 export async function loadConcernRoutingState(serviceClient: ServiceClientLike, concernId: string): Promise<RouteConcernState | null> {
   const { data: concern, error: concernError } = await serviceClient
     .from("concerns")
@@ -257,17 +315,9 @@ export async function loadConcernRoutingState(serviceClient: ServiceClientLike, 
     };
   }
 
-  const { data: authorProfile, error: authorProfileError } = await serviceClient
-    .from("profiles")
-    .select("id, onboarding_completed, gender, is_active, is_blocked")
-    .eq("id", normalizedConcern.author_profile_id)
-    .maybeSingle();
+  const routingDirectoryState = await loadRoutingDirectoryState(serviceClient, normalizedConcern.author_profile_id);
 
-  if (authorProfileError) {
-    throw authorProfileError;
-  }
-
-  if (!authorProfile) {
+  if (!routingDirectoryState.author) {
     return {
       concern: {
         id: normalizedConcern.id,
@@ -280,25 +330,19 @@ export async function loadConcernRoutingState(serviceClient: ServiceClientLike, 
       candidatePool: [],
     };
   }
-
-  const { data: candidateProfiles, error: candidateProfilesError } = await serviceClient
-    .from("profiles")
-    .select("id, onboarding_completed, gender, is_active, is_blocked")
-    .neq("id", normalizedConcern.author_profile_id);
-
-  if (candidateProfilesError) {
-    throw candidateProfilesError;
-  }
-
-  const normalizedCandidateProfiles = (candidateProfiles ?? []) as ProfileRow[];
-  const candidateProfileIds = normalizedCandidateProfiles.map((profile) => profile.id);
   const sameConcernResponses = await selectSameConcernResponses(
     serviceClient,
     sameConcernDeliveries.map((row) => row.id),
   );
-  const interestsByProfileId = await selectProfileInterests(serviceClient, [normalizedConcern.author_profile_id, ...candidateProfileIds]);
-  const concernBodiesByProfileId = await selectCandidateConcernBodies(serviceClient, candidateProfileIds);
-  const responseBodiesByProfileId = await selectCandidateResponseBodies(serviceClient, candidateProfileIds);
+  const candidatePool = routingDirectoryState.candidatePool.map((candidate) => ({
+    ...candidate,
+    alreadyAssigned: sameConcernDeliveries.some((delivery) => delivery.recipient_profile_id === candidate.profileId),
+    alreadyResponded: sameConcernResponses.some((response) =>
+      sameConcernDeliveries.some(
+        (delivery) => delivery.id === response.delivery_id && delivery.recipient_profile_id === candidate.profileId,
+      ),
+    ),
+  }));
 
   return {
     concern: {
@@ -307,22 +351,15 @@ export async function loadConcernRoutingState(serviceClient: ServiceClientLike, 
       authorProfileId: normalizedConcern.author_profile_id,
       body: normalizedConcern.body,
     },
-    author: {
-      profileId: authorProfile.id,
-      onboardingCompleted: authorProfile.onboarding_completed,
-      gender: authorProfile.gender,
-      interests: interestsByProfileId.get(authorProfile.id) ?? [],
-      isActive: authorProfile.is_active,
-      isBlocked: authorProfile.is_blocked,
-    },
+    author: routingDirectoryState.author,
     existingDeliveryCount,
-    candidatePool: buildRoutingCandidatePoolFromRows({
-      candidateProfiles: normalizedCandidateProfiles,
-      sameConcernDeliveries,
-      sameConcernResponses,
-      interestsByProfileId,
-      concernBodiesByProfileId,
-      responseBodiesByProfileId,
-    }),
+    candidatePool,
   };
+}
+
+export async function loadDraftConcernRoutingState(
+  serviceClient: ServiceClientLike,
+  authorProfileId: string,
+): Promise<DraftConcernRoutingState> {
+  return loadRoutingDirectoryState(serviceClient, authorProfileId);
 }

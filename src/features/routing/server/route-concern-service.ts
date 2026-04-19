@@ -25,13 +25,6 @@ type RouteConcernState = {
 export type RouteConcernSuccessResult =
   | {
       ok: true;
-      status: "no_delivery";
-      concernId: string;
-      eligibleCandidateCount: 0;
-      deliveryCount: 0;
-    }
-  | {
-      ok: true;
       status: "already_routed";
       concernId: string;
       deliveryCount: number;
@@ -60,6 +53,7 @@ type RouteConcernLogEvent =
   | "routing_openai_failed"
   | "routing_output_validated"
   | "routing_output_invalid"
+  | "routing_invariant_failed"
   | "routing_delivery_created"
   | "routing_delivery_failed";
 
@@ -159,14 +153,17 @@ export async function routeConcernWithDependencies(
     requiredDeliveryCount,
   });
 
-  if (requiredDeliveryCount === 0) {
-    return {
-      ok: true,
-      status: "no_delivery",
+  if (eligibleCandidates.length < requiredDeliveryCount) {
+    logError(dependencies, {
+      event: "routing_invariant_failed",
       concernId: request.concernId,
-      eligibleCandidateCount: 0,
-      deliveryCount: 0,
-    };
+      authorProfileId: state.concern.authorProfileId,
+      eligibleCandidateCount: eligibleCandidates.length,
+      requiredDeliveryCount,
+      errorCode: "routing_invariant_allowable_pool_too_small",
+    });
+
+    return buildFailure("routing_invariant_allowable_pool_too_small");
   }
 
   const openAiInput = buildRoutingOpenAiInput({

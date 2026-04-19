@@ -1,8 +1,10 @@
-export type LogStage = "auth" | "profile_bootstrap" | "onboarding_rpc";
+export type LogStage = "auth" | "profile_bootstrap" | "onboarding_rpc" | "onboarding";
+export type AnalyticsScope = "default" | "example_excluded";
 
 export type LogPayload = {
   event: string;
   stage?: LogStage;
+  analyticsScope?: AnalyticsScope;
   attempt?: number;
   hasSession: boolean;
   userIdPresent: boolean;

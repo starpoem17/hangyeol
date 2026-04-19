@@ -33,7 +33,8 @@ export type SaveResponseFeedbackHandlerDeps = {
   requireAuthenticatedUserId(request: Request): Promise<string | null>;
   loadProfileId(authUserId: string): Promise<string | null>;
   saveFeedback(args: SaveFeedbackArgs): Promise<unknown>;
-  sendNotificationPushes(notifications: NotificationPushJob[]): Promise<void>;
+  sendNotificationPushes(notifications: NotificationPushJob[]): Promise<unknown>;
+  logEvent(payload: Record<string, unknown>): void;
   logError(message: string, error: unknown): void;
 };
 
@@ -155,6 +156,10 @@ export async function handleSaveResponseFeedbackRequest(
   }
 
   try {
+    deps.logEvent({
+      event: "feedback_submitted",
+    });
+
     const profileId = await deps.loadProfileId(authUserId);
 
     if (!profileId) {
@@ -180,6 +185,9 @@ export async function handleSaveResponseFeedbackRequest(
     }
 
     if (result.resultCode === "comment_blocked") {
+      deps.logEvent({
+        event: "feedback_comment_blocked",
+      });
       return jsonResponse(200, {
         resultCode: "comment_blocked",
         userMessage: "부적절한 표현이 감지되었습니다.",
@@ -188,11 +196,22 @@ export async function handleSaveResponseFeedbackRequest(
 
     if (result.notifications.length > 0) {
       try {
-        await deps.sendNotificationPushes(result.notifications);
+        const pushSummary = await deps.sendNotificationPushes(result.notifications);
+        deps.logEvent({
+          event: "feedback_push_completed",
+          analyticsScope: result.resultCode === "example_concern_not_allowed" ? "example_excluded" : "default",
+          ...((typeof pushSummary === "object" && pushSummary !== null ? pushSummary : {}) as Record<string, unknown>),
+        });
       } catch (error) {
         deps.logError("save-response-feedback push send failure", error);
       }
     }
+
+    deps.logEvent({
+      event: "feedback_saved",
+      analyticsScope: result.resultCode === "example_concern_not_allowed" ? "example_excluded" : "default",
+      resultCode: result.resultCode,
+    });
 
     return jsonResponse(200, {
       resultCode: result.resultCode,

@@ -11,10 +11,12 @@ import {
   submitResponseWithDependencies,
   type PersistResponseSubmissionResult,
 } from "../../../src/features/responses/server/submit-response-service.ts";
+import { logEvent, logEventError } from "../_shared/event-log.ts";
 import { sendNotificationPushes } from "../_shared/expo-push.ts";
 
 type JsonHeaders = Record<string, string>;
 type NotificationRow = {
+  concern_source_type: PersistResponseSubmissionResult["concernSourceType"];
   notification_id: string | null;
   notification_profile_id: string | null;
   notification_type: PersistResponseSubmissionResult["notifications"][number]["type"] | null;
@@ -181,6 +183,7 @@ function normalizeRpcResult(data: unknown): PersistResponseSubmissionResult {
     response_id?: string | null;
     result_code: PersistResponseSubmissionResult["resultCode"];
     notification_created: boolean;
+    concern_source_type?: PersistResponseSubmissionResult["concernSourceType"];
   };
 
   const responseId = typeof resultRow.response_id === "string" || resultRow.response_id === null ? resultRow.response_id : null;
@@ -216,6 +219,10 @@ function normalizeRpcResult(data: unknown): PersistResponseSubmissionResult {
     responseId,
     resultCode: resultRow.result_code,
     notificationCreated: resultRow.notification_created,
+    concernSourceType:
+      resultRow.concern_source_type === "real" || resultRow.concern_source_type === "example"
+        ? resultRow.concern_source_type
+        : null,
     notifications,
   };
 }
@@ -265,6 +272,11 @@ Deno.serve(async (request) => {
   try {
     const serviceClient = createServiceClient();
     let pendingNotifications: PersistResponseSubmissionResult["notifications"] = [];
+    let pushLogContext: PersistResponseSubmissionResult | null = null;
+
+    logEvent({
+      event: "response_submit_attempted",
+    });
 
     const result = await submitResponseWithDependencies(
       {
@@ -302,6 +314,7 @@ Deno.serve(async (request) => {
 
           const result = normalizeRpcResult(data);
           pendingNotifications = result.notifications;
+          pushLogContext = result;
           return result;
         },
       },
@@ -309,7 +322,7 @@ Deno.serve(async (request) => {
 
     if (pendingNotifications.length > 0) {
       try {
-        await sendNotificationPushes(
+        const pushSummary = await sendNotificationPushes(
           serviceClient,
           pendingNotifications.map((notification) => ({
             notificationId: notification.id,
@@ -319,14 +332,38 @@ Deno.serve(async (request) => {
             relatedEntityId: notification.relatedEntityId,
           })),
         );
+
+        logEvent({
+          event: "response_push_completed",
+          analyticsScope: pushLogContext?.concernSourceType === "example" ? "example_excluded" : "default",
+          resultCode: result.ok ? result.body.status : result.body.code,
+          ...pushSummary,
+        });
       } catch (error) {
-        console.error("submit-response push send failure", error);
+        logEventError({
+          event: "response_push_failed",
+          analyticsScope: pushLogContext?.concernSourceType === "example" ? "example_excluded" : "default",
+          errorMessage: error instanceof Error ? error.message : "unknown push failure",
+        });
       }
     }
 
+    logEvent({
+      event: result.ok
+        ? result.body.status === "approved"
+          ? "response_submit_approved"
+          : "response_submit_blocked"
+        : "response_submit_rejected",
+      analyticsScope: pushLogContext?.concernSourceType === "example" ? "example_excluded" : "default",
+      resultCode: result.ok ? result.body.status : result.body.code,
+    });
+
     return jsonResponse(result.httpStatus, result.body);
   } catch (error) {
-    console.error("submit-response unexpected failure", error);
+    logEventError({
+      event: "response_submit_failed",
+      errorMessage: error instanceof Error ? error.message : "unknown response submission failure",
+    });
     return jsonResponse(500, buildServerErrorBody());
   }
 });

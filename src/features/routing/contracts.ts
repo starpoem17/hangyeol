@@ -52,6 +52,7 @@ export type RouteConcernFailureCode =
   | "concern_not_found"
   | "concern_not_real"
   | "concern_author_not_routable"
+  | "routing_invariant_allowable_pool_too_small"
   | "routing_unavailable"
   | "routing_model_refused"
   | "routing_output_missing"

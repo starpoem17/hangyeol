@@ -8,15 +8,22 @@ import {
 } from "../../../src/features/concerns/contracts.ts";
 import { normalizeModerationResponse } from "../../../src/features/concerns/server/moderation.ts";
 import { submitConcernWithDependencies } from "../../../src/features/concerns/server/submit-concern-service.ts";
+import {
+  buildRoutingOpenAiInput,
+  computeRequiredDeliveryCount,
+  filterEligibleRoutingCandidates,
+  isConcernAuthorRoutable,
+} from "../../../src/features/routing/server/eligibility.ts";
 import { selectRespondersWithOpenAi } from "../../../src/features/routing/server/openai-routing.ts";
-import { routeConcernWithDependencies } from "../../../src/features/routing/server/route-concern-service.ts";
-import { loadConcernRoutingState } from "../../../src/features/routing/server/runtime-state.ts";
+import { loadDraftConcernRoutingState } from "../../../src/features/routing/server/runtime-state.ts";
 import type { NotificationRelatedEntityType, NotificationType } from "../../../src/features/notifications/types.ts";
+import { logEvent, logEventError } from "../_shared/event-log.ts";
 import { sendNotificationPushes } from "../_shared/expo-push.ts";
 
 type JsonHeaders = Record<string, string>;
 type ServiceClient = ReturnType<typeof createServiceClient>;
 type DeliveryNotificationRow = {
+  concern_id: string;
   delivery_id: string;
   recipient_profile_id: string;
   routing_order: number;
@@ -164,94 +171,108 @@ function buildServerErrorBody(): SubmitConcernErrorResponse {
   };
 }
 
-async function createConcernDeliveries(serviceClient: ServiceClient, concernId: string, responderProfileIds: string[]) {
-  const { data, error } = await serviceClient.rpc("route_concern_with_notifications_atomic_write", {
-    p_concern_id: concernId,
-    p_recipient_profile_ids: responderProfileIds,
+async function selectConcernResponderProfileIds(
+  serviceClient: ServiceClient,
+  input: {
+    actorProfileId: string;
+    concernBody: string;
+  },
+) {
+  const routingState = await loadDraftConcernRoutingState(serviceClient, input.actorProfileId);
+
+  if (!isConcernAuthorRoutable(routingState.author)) {
+    throw new Error("routing concern author is not routable");
+  }
+
+  const eligibleCandidates = filterEligibleRoutingCandidates(routingState.candidatePool);
+  const requiredDeliveryCount = computeRequiredDeliveryCount(eligibleCandidates.length);
+
+  logEvent({
+    event: "routing_eligible_pool_computed",
+    authorProfileId: input.actorProfileId,
+    eligibleCandidateCount: eligibleCandidates.length,
+    requiredDeliveryCount,
+  });
+
+  if (eligibleCandidates.length < requiredDeliveryCount) {
+    logEventError({
+      event: "routing_invariant_failed",
+      authorProfileId: input.actorProfileId,
+      eligibleCandidateCount: eligibleCandidates.length,
+      requiredDeliveryCount,
+      errorCode: "routing_invariant_allowable_pool_too_small",
+    });
+    throw new Error("routing invariant failure: allowable pool too small");
+  }
+
+  const openAiInput = buildRoutingOpenAiInput({
+    author: routingState.author,
+    concernBody: input.concernBody,
+    eligibleCandidates,
+    requiredDeliveryCount,
+  });
+
+  const selection = await selectRespondersWithOpenAi(openAiInput, {
+    apiKey: getRequiredEnv("OPENAI_API_KEY"),
+  });
+
+  if (!selection.ok) {
+    logEventError({
+      event: "routing_selection_failed",
+      authorProfileId: input.actorProfileId,
+      eligibleCandidateCount: eligibleCandidates.length,
+      requiredDeliveryCount,
+      errorCode: selection.code,
+    });
+    throw new Error(`routing selection failed: ${selection.code}`);
+  }
+
+  logEvent({
+    event: "routing_selection_completed",
+    authorProfileId: input.actorProfileId,
+    eligibleCandidateCount: eligibleCandidates.length,
+    requiredDeliveryCount,
+    responderProfileIds: selection.responderProfileIds,
+  });
+
+  return selection.responderProfileIds;
+}
+
+async function persistApprovedConcernSubmission(
+  serviceClient: ServiceClient,
+  input: {
+    actorProfileId: string;
+    rawSubmittedText: string;
+    validatedBody: string;
+    categorySummary: Record<string, unknown>;
+    rawProviderPayload: unknown;
+    responderProfileIds: string[];
+  },
+) {
+  const { data, error } = await serviceClient.rpc("submit_approved_concern_with_routing_and_notifications", {
+    p_actor_profile_id: input.actorProfileId,
+    p_raw_submitted_text: input.rawSubmittedText,
+    p_validated_body: input.validatedBody,
+    p_category_summary: input.categorySummary,
+    p_raw_provider_payload: input.rawProviderPayload,
+    p_recipient_profile_ids: input.responderProfileIds,
   });
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as DeliveryNotificationRow[];
-}
+  const rows = (data ?? []) as DeliveryNotificationRow[];
+  const concernId = rows[0]?.concern_id;
 
-async function routeApprovedConcernSubmission(serviceClient: ServiceClient, concernId: string) {
-  let pendingNotifications: DeliveryNotificationRow[] = [];
-
-  try {
-    const result = await routeConcernWithDependencies(
-      {
-        concernId,
-      },
-      {
-        loadConcernRoutingState: async (requestedConcernId) => loadConcernRoutingState(serviceClient, requestedConcernId),
-        selectResponderProfileIds: async (input) => {
-          const result = await selectRespondersWithOpenAi(input, {
-            apiKey: getRequiredEnv("OPENAI_API_KEY"),
-          });
-
-          if (!result.ok) {
-            return {
-              ok: false as const,
-              code: result.code,
-            };
-          }
-
-          return {
-            ok: true as const,
-            responderProfileIds: result.responderProfileIds,
-          };
-        },
-        createConcernDeliveries: async ({ concernId: routedConcernId, responderProfileIds }) => {
-          pendingNotifications = await createConcernDeliveries(serviceClient, routedConcernId, responderProfileIds);
-        },
-        logInfo: (payload) => console.info(payload),
-        logError: (payload) => console.error(payload),
-      },
-    );
-
-    if (!result.ok && result.code === "concern_not_real") {
-      console.error({
-        event: "routing_invariant_breach",
-        concernId,
-        errorCode: result.code,
-      });
-      throw new Error("routing invariant breach: concern_not_real");
-    }
-
-    if (pendingNotifications.length > 0) {
-      try {
-        await sendNotificationPushes(
-          serviceClient,
-          pendingNotifications.map((notification) => ({
-            notificationId: notification.notification_id,
-            profileId: notification.notification_profile_id,
-            type: notification.notification_type,
-            relatedEntityType: notification.notification_related_entity_type,
-            relatedEntityId: notification.notification_related_entity_id,
-          })),
-        );
-      } catch (error) {
-        console.error({
-          event: "routing_push_send_failed",
-          concernId,
-          errorMessage: error instanceof Error ? error.message : "unknown push failure",
-        });
-      }
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message === "routing invariant breach: concern_not_real") {
-      throw error;
-    }
-
-    console.error({
-      event: "routing_unexpected_failure",
-      concernId,
-      errorMessage: error instanceof Error ? error.message : "unknown routing failure",
-    });
+  if (typeof concernId !== "string" || concernId.length === 0) {
+    throw new Error("approved concern persistence did not return a concern id");
   }
+
+  return {
+    concernId,
+    notifications: rows,
+  };
 }
 
 Deno.serve(async (request) => {
@@ -298,6 +319,11 @@ Deno.serve(async (request) => {
 
   try {
     const serviceClient = createServiceClient();
+    let concernPushNotifications: DeliveryNotificationRow[] = [];
+
+    logEvent({
+      event: "concern_submit_attempted",
+    });
 
     const result = await submitConcernWithDependencies(
       {
@@ -336,36 +362,75 @@ Deno.serve(async (request) => {
             throw error;
           }
         },
-        persistApprovedConcernSubmission: async ({ actorProfileId, rawSubmittedText, validatedBody, moderation }) => {
-          const { data, error } = await serviceClient.rpc(
-            "submit_concern_with_moderation_audit",
-            buildPersistencePayload({
-              actorProfileId,
-              rawSubmittedText,
-              blocked: false,
-              validatedBody,
-              categorySummary: moderation.categorySummary,
-              rawProviderPayload: moderation.rawProviderPayload,
-            }),
-          );
+        selectResponderProfileIds: async ({ actorProfileId, concernBody }) => {
+          return selectConcernResponderProfileIds(serviceClient, {
+            actorProfileId,
+            concernBody,
+          });
+        },
+        persistApprovedConcernSubmission: async ({
+          actorProfileId,
+          rawSubmittedText,
+          validatedBody,
+          moderation,
+          responderProfileIds,
+        }) => {
+          const persistenceResult = await persistApprovedConcernSubmission(serviceClient, {
+            actorProfileId,
+            rawSubmittedText,
+            validatedBody,
+            categorySummary: moderation.categorySummary,
+            rawProviderPayload: moderation.rawProviderPayload,
+            responderProfileIds,
+          });
 
-          if (error || typeof data !== "string" || data.length === 0) {
-            throw error ?? new Error("approved concern submission did not return a concern id");
-          }
+          concernPushNotifications = persistenceResult.notifications;
 
           return {
-            concernId: data,
+            concernId: persistenceResult.concernId,
           };
-        },
-        routeApprovedConcernSubmission: async ({ concernId }) => {
-          await routeApprovedConcernSubmission(serviceClient, concernId);
         },
       },
     );
 
+    if (concernPushNotifications.length > 0) {
+      try {
+        const pushSummary = await sendNotificationPushes(
+          serviceClient,
+          concernPushNotifications.map((notification) => ({
+            notificationId: notification.notification_id,
+            profileId: notification.notification_profile_id,
+            type: notification.notification_type,
+            relatedEntityType: notification.notification_related_entity_type,
+            relatedEntityId: notification.notification_related_entity_id,
+          })),
+        );
+
+        logEvent({
+          event: "concern_push_completed",
+          concernId: concernPushNotifications[0]?.concern_id ?? null,
+          ...pushSummary,
+        });
+      } catch (error) {
+        logEventError({
+          event: "concern_push_failed",
+          concernId: concernPushNotifications[0]?.concern_id ?? null,
+          errorMessage: error instanceof Error ? error.message : "unknown push failure",
+        });
+      }
+    }
+
+    logEvent({
+      event: result.ok ? `concern_submit_${result.body.status}` : "concern_submit_rejected",
+      resultCode: result.ok ? result.body.status : result.body.code,
+    });
+
     return jsonResponse(result.httpStatus, result.body);
   } catch (error) {
-    console.error("submit-concern unexpected failure", error);
+    logEventError({
+      event: "concern_submit_failed",
+      errorMessage: error instanceof Error ? error.message : "unknown concern submission failure",
+    });
     return jsonResponse(500, buildServerErrorBody());
   }
 });

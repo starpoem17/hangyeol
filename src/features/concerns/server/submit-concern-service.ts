@@ -34,10 +34,7 @@ export type PersistBlockedConcernInput = {
 
 export type PersistApprovedConcernInput = PersistBlockedConcernInput & {
   validatedBody: string;
-};
-
-export type RouteApprovedConcernInput = {
-  concernId: string;
+  responderProfileIds: string[];
 };
 
 export type SubmitConcernServiceDependencies = {
@@ -45,12 +42,8 @@ export type SubmitConcernServiceDependencies = {
   moderateConcernBody(rawBody: string): Promise<ModerationDecision>;
   persistBlockedConcernSubmission(input: PersistBlockedConcernInput): Promise<void>;
   persistApprovedConcernSubmission(input: PersistApprovedConcernInput): Promise<{ concernId: string }>;
-  routeApprovedConcernSubmission?(input: RouteApprovedConcernInput): Promise<void>;
+  selectResponderProfileIds(input: { actorProfileId: string; concernBody: string }): Promise<string[]>;
 };
-
-function isRoutingInvariantError(error: unknown) {
-  return error instanceof Error && error.message === "routing invariant breach: concern_not_real";
-}
 
 function buildError(httpStatus: 400 | 401 | 409 | 500 | 502, body: SubmitConcernErrorResponse): SubmitConcernServiceResult {
   return {
@@ -127,25 +120,18 @@ export async function submitConcernWithDependencies(
       };
     }
 
+    const responderProfileIds = await dependencies.selectResponderProfileIds({
+      actorProfileId,
+      concernBody: validation.data.trimmedBody,
+    });
+
     const { concernId } = await dependencies.persistApprovedConcernSubmission({
       actorProfileId,
       rawSubmittedText: validation.data.rawBody,
       validatedBody: validation.data.trimmedBody,
+      responderProfileIds,
       moderation,
     });
-
-    try {
-      await dependencies.routeApprovedConcernSubmission?.({
-        concernId,
-      });
-    } catch (error) {
-      if (isRoutingInvariantError(error)) {
-        throw error;
-      }
-
-      // Routing runs as a best-effort backend consequence in Phase 4.
-      // The approved concern row must still be returned to the caller.
-    }
 
     return {
       ok: true,

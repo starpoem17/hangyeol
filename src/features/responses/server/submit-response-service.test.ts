@@ -52,6 +52,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_not_accessible",
           notificationCreated: false,
+          concernSourceType: null,
           notifications: [],
         }),
       },
@@ -86,6 +87,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_not_accessible",
           notificationCreated: false,
+          concernSourceType: null,
           notifications: [],
         }),
       },
@@ -120,6 +122,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_already_responded",
           notificationCreated: false,
+          concernSourceType: "real",
           notifications: [],
         }),
       },
@@ -140,6 +143,7 @@ describe("submitResponseWithDependencies", () => {
       responseId: null,
       resultCode: "blocked",
       notificationCreated: false,
+      concernSourceType: "real",
       notifications: [],
     });
 
@@ -190,6 +194,7 @@ describe("submitResponseWithDependencies", () => {
       responseId: "response-1",
       resultCode: "approved",
       notificationCreated: true,
+      concernSourceType: "real",
       notifications: [
         {
           id: "notification-1",
@@ -261,6 +266,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_already_responded",
           notificationCreated: false,
+          concernSourceType: "real",
           notifications: [],
         }),
       },

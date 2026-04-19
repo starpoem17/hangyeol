@@ -31,9 +31,9 @@
 - [x] 성별은 `onboarding_completed = true`가 되는 시점에 필수값으로 강제한다.
 - [x] 현재 저장소에는 일반 클라이언트의 직접 `gender` 수정 경로를 두지 않는다.
 - [x] 하단 네비게이션은 `Inbox / Post concern / Notifications / Profile` 4개로 고정한다.
-- [ ] `My concerns`는 별도 탭이 아니라 `Post concern` 내부 중첩 화면으로 고정한다.
-- [ ] 앱 첫 화면은 항상 `Inbox(내게 전달된 고민 목록)`로 고정한다.
-- [ ] 실사용자 고민은 적격 답변자가 3명 이상 있으면 정확히 3명에게 전달한다. 어떠한 경우에도 3명에게 전달된다.
+- [x] `My concerns`는 별도 탭이 아니라 `Post concern` 내부 중첩 화면으로 고정한다.
+- [x] 앱 첫 화면은 항상 `Inbox(내게 전달된 고민 목록)`로 고정한다.
+- [x] 실사용자 고민의 초기 라우팅은 정확히 3명으로 고정한다. 적격 풀이 3명 미만이면 성공 저장을 만들지 않고 invariant failure로 처리한다.
 - [x] 예제 고민은 실제 사용자 고민처럼 보이게 표시하되 내부적으로 `example`로 태깅한다.
 - [ ] 예제 고민은 답변만 가능하고 좋아요/후기/푸시/solved-count/기본 분석 대상에서 제외한다.
 - [x] `response_feedback`는 `liked`와 `comment_body`를 같은 행에 저장한다.
@@ -74,7 +74,7 @@
 
 ## 3. 데이터 모델과 스키마 계약 확정
 
-- [ ] `profiles` 스키마를 확정한다.
+- [x] `profiles` 스키마를 확정한다.
   - `id`는 `auth.users.id`와 동일한 PK/FK
   - `gender`는 `onboarding_completed = true`일 때 필수
   - `onboarding_completed`는 필수 boolean이며 서버 소유 상태로 관리
@@ -128,11 +128,11 @@
 - [x] `concerns`에 source type별 check constraint를 둔다.
   - `real`이면 `author_profile_id` 필수, `example_key` 비어 있음
   - `example`이면 `author_profile_id` 비어 있음, `example_key` 필수
-- [ ] 자기 자신의 고민을 자기에게 전달하는 self-delivery를 금지한다.
+- [x] 자기 자신의 고민을 자기에게 전달하는 self-delivery를 금지한다.
   - 서버 insert 로직에서 차단
   - DB guard/trigger 또는 동등한 검증으로 최종 차단
 - [x] 동일 고민에 이미 배정된 사용자 재배정을 금지한다.
-- [ ] 동일 고민에 이미 답변한 사용자의 재선정을 금지한다.
+- [x] 동일 고민에 이미 답변한 사용자의 재선정을 금지한다.
 - [x] 예제 고민에 대한 feedback row 생성을 금지한다.
 
 ## 5. Moderation audit 저장소 분리
@@ -147,9 +147,9 @@
   - raw provider payload
   - checked_at
   - approved entity link nullable
-- [ ] 차단된 고민/답변/후기 코멘트는 제품 테이블에 저장하지 않고 audit 저장소에만 남긴다.
-- [ ] 승인된 고민/답변/후기 코멘트는 제품 테이블에 저장하고 audit에는 연결 정보만 남긴다.
-- [ ] moderation audit 저장소에 대한 일반 클라이언트 RLS 차단은 구현하고, 전용 서버 쓰기 경로 분리는 후속 단계에서 완료한다.
+- [x] 차단된 고민/답변/후기 코멘트는 제품 테이블에 저장하지 않고 audit 저장소에만 남긴다.
+- [x] 승인된 고민/답변/후기 코멘트는 제품 테이블에 저장하고 audit에는 연결 정보만 남긴다.
+- [x] moderation audit 저장소에 대한 일반 클라이언트 RLS 차단과 전용 서버 쓰기 경로 분리를 완료한다.
 
 ## 6. 익명 인증과 온보딩 구현
 
@@ -168,10 +168,10 @@
 - [x] `Inbox` 탭을 구현한다.
   - 내게 전달된 실제 고민 목록
   - 실제 고민이 충분하지 않을 때 예제 고민 노출
-- [ ] `Post concern` 탭을 구현한다.
+- [x] `Post concern` 탭을 구현한다.
   - 고민 작성 화면
   - `My concerns` 중첩 화면
-- [ ] `Notifications` 탭을 구현한다.
+- [x] `Notifications` 탭을 구현한다.
 - [x] `Profile` 탭을 구현한다.
 - [x] 예제 고민은 UI상 실제 사용자 고민처럼 보이게 처리하고 별도 시각 분리 라벨은 넣지 않는다.
 
@@ -199,9 +199,8 @@
   - 동일 고민에 이미 배정된 사용자 제외
   - 동일 고민에 이미 답변한 사용자 제외
 - [x] 라우팅 대상 수를 서버에서 먼저 계산한다.
-  - 적격 풀이 3명 이상이면 required delivery count = 3
-  - 적격 풀이 1명 또는 2명이면 required delivery count = 적격 인원 수
-  - 적격 풀이 0명이면 no-delivery
+  - 초기 실사용자 고민의 required delivery count = 3
+  - 적격 풀이 3명 미만이면 invariant failure로 처리하고 성공 저장을 만들지 않는다
 - [x] OpenAI 라우팅 입력 계약을 그대로 구현한다.
   - 고민 게시자 입력: 성별, 관심분야, 고민 본문
   - 후보 답변자 입력: 성별, 관심분야, 모든 과거 고민 게시 내용, 모든 과거 고민 답변 내용
@@ -213,8 +212,7 @@
   - eligibility/access control 규칙 override 금지
 - [x] OpenAI 출력 계약을 schema-validated structured output으로 고정한다.
   - 정확히 필요한 개수만큼의 ordered `responder_profile_ids` 배열 반환
-  - 적격 풀이 3명 이상이면 top-3 profile id 정확히 3개 반환
-  - 적격 풀이 1명 또는 2명이면 해당 전체 profile id만 반환
+  - top-3 profile id 정확히 3개 반환
   - 필요한 개수보다 많은 후보 반환 금지
   - 서버가 ad hoc parsing 없이 바로 `concern_deliveries`를 생성할 수 있게 JSON schema 검증 사용
 - [x] 서버 책임을 명확히 구현한다.
@@ -277,8 +275,8 @@
 - [x] 예제 고민은 실제 사용자 고민처럼 보이게 `Inbox`에서 노출한다.
   - 내부적으로는 저장된 example `routing_order`를 그대로 보존하되, Inbox 리스트 노출 순서는 display-only 정규화 순서를 사용하므로 반복 재사용 횟수가 Inbox 목록 동작을 통해 노출되지 않는다.
 - [x] 예제 고민은 실사용자 고민 라우팅의 fallback branch로 사용하지 않는다.
-- [x] 실제 고민의 적격 풀이 비어 있어 no-delivery가 발생해도, 이는 별도의 routing 결과로 유지하고 예제 고민 공급과 혼동하지 않는다.
-- [ ] 예제 고민은 push/feedback/solved-count/기본 분석 대상에서 제외한다.
+- [x] 실제 고민의 적격 풀이가 3명 미만이면 invariant failure로 처리하고, 이를 예제 고민 공급과 혼동하지 않는다.
+- [x] 예제 고민은 push/feedback/solved-count/기본 분석 대상에서 제외한다.
 
 ## 13. 알림 시스템 구현
 
@@ -312,7 +310,7 @@
   - source type 무결성
   - delivery/response/feedback 중복 방지
   - self-delivery 최종 차단
-- [ ] 서버 레벨에서 반드시 강제할 항목을 구현한다.
+- [x] 서버 레벨에서 반드시 강제할 항목을 구현한다.
   - eligibility filter
   - required delivery count 계산
   - OpenAI 입력 조립
@@ -320,7 +318,7 @@
   - delivery row 생성
   - moderation audit 기록
   - solved-count 계산 query
-- [ ] 앱 레벨에서는 UX만 담당하게 한다.
+- [x] 앱 레벨에서는 UX만 담당하게 한다.
   - 필수값/길이 검증
   - 경고 모달 표시
   - 본문 유지
@@ -343,8 +341,7 @@
   - moderation audit 일반 접근 차단
 - [x] 라우팅 테스트를 작성한다.
   - 적격 풀이 3명 이상이면 정확히 3명 반환
-  - 적격 풀이 1명 또는 2명이면 적격자 전원을 반환
-  - 적격 풀이 0명이면 그때만 no-delivery
+  - 적격 풀이 3명 미만이면 invariant failure로 성공 경로가 남지 않음
   - OpenAI가 top-3 ordered responder id를 정확히 반환
   - OpenAI structured output이 schema와 정확히 일치
   - 서버가 OpenAI 결과를 임의 보충/혼합하지 않음
@@ -368,13 +365,13 @@
   - 익명 로그인
   - 성별/관심분야 온보딩
   - 고민 작성
-  - 3명 라우팅 또는 적격자 전원 라우팅
+  - 초기 실사용자 고민 3명 라우팅
   - 답변 작성
   - 좋아요/후기
 
 ## 17. 로깅, 운영, 배포 준비
 
-- [ ] MVP 수준의 최소 이벤트 로깅을 추가한다.
+- [x] MVP 수준의 최소 이벤트 로깅을 추가한다.
   - 온보딩 완료
   - 고민 작성 시도/승인/차단
   - 라우팅 적격 인원 수
@@ -382,8 +379,8 @@
   - 답변 작성 시도/승인/차단
   - 좋아요/후기 제출
   - 푸시 전송 성공/실패
-- [ ] 기본 분석에서 example concern 이벤트를 분리 태깅한다.
-- [ ] 운영자가 moderation 결과를 audit 저장소 기준으로 확인할 수 있게 한다.
+- [x] 기본 분석에서 example concern 이벤트를 분리 태깅한다.
+- [x] 운영자가 moderation 결과를 audit 저장소 기준으로 확인할 수 있게 한다.
 - [ ] 환경 변수와 시크릿을 배포 환경 기준으로 정리한다.
 - [ ] Supabase migrations/Edge Functions 배포 절차를 정리한다.
 - [ ] EAS build 설정을 완료한다.

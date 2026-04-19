@@ -23,6 +23,16 @@ type NotificationPushJob = {
   relatedEntityId: string;
 };
 
+export type NotificationPushSummary = {
+  requestedNotificationCount: number;
+  resolvedTokenCount: number;
+  dispatchedMessageCount: number;
+  successCount: number;
+  failureCount: number;
+  deletedTokenCount: number;
+  skippedReason: "none" | "no_notifications" | "no_tokens" | "no_messages";
+};
+
 type ExpoPushTicket = {
   status: "ok" | "error";
   details?: {
@@ -61,9 +71,20 @@ async function deletePushToken(serviceClient: ServiceClientLike, expoPushToken: 
   }
 }
 
-export async function sendNotificationPushes(serviceClient: ServiceClientLike, notifications: NotificationPushJob[]) {
+export async function sendNotificationPushes(
+  serviceClient: ServiceClientLike,
+  notifications: NotificationPushJob[],
+): Promise<NotificationPushSummary> {
   if (notifications.length === 0) {
-    return;
+    return {
+      requestedNotificationCount: 0,
+      resolvedTokenCount: 0,
+      dispatchedMessageCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      deletedTokenCount: 0,
+      skippedReason: "no_notifications",
+    };
   }
 
   const tokens = await loadPushTokens(
@@ -72,7 +93,15 @@ export async function sendNotificationPushes(serviceClient: ServiceClientLike, n
   );
 
   if (tokens.length === 0) {
-    return;
+    return {
+      requestedNotificationCount: notifications.length,
+      resolvedTokenCount: 0,
+      dispatchedMessageCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      deletedTokenCount: 0,
+      skippedReason: "no_tokens",
+    };
   }
 
   const messages = notifications.flatMap((notification) =>
@@ -90,7 +119,15 @@ export async function sendNotificationPushes(serviceClient: ServiceClientLike, n
   );
 
   if (messages.length === 0) {
-    return;
+    return {
+      requestedNotificationCount: notifications.length,
+      resolvedTokenCount: tokens.length,
+      dispatchedMessageCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      deletedTokenCount: 0,
+      skippedReason: "no_messages",
+    };
   }
 
   const response = await fetch(EXPO_PUSH_ENDPOINT, {
@@ -108,13 +145,34 @@ export async function sendNotificationPushes(serviceClient: ServiceClientLike, n
 
   const payload = (await response.json()) as ExpoPushResponse;
   const tickets = Array.isArray(payload.data) ? payload.data : [];
+  let deletedTokenCount = 0;
+  let successCount = 0;
+  let failureCount = 0;
 
   for (let index = 0; index < tickets.length; index += 1) {
     const ticket = tickets[index];
     const message = messages[index];
 
+    if (ticket?.status === "ok") {
+      successCount += 1;
+      continue;
+    }
+
+    failureCount += 1;
+
     if (ticket?.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
       await deletePushToken(serviceClient, message.to);
+      deletedTokenCount += 1;
     }
   }
+
+  return {
+    requestedNotificationCount: notifications.length,
+    resolvedTokenCount: tokens.length,
+    dispatchedMessageCount: messages.length,
+    successCount,
+    failureCount,
+    deletedTokenCount,
+    skippedReason: "none",
+  };
 }
