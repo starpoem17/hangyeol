@@ -1,9 +1,18 @@
 import type { NotificationPushPayload, NotificationRouteInput, NotificationType, NotificationRelatedEntityType } from "./types";
 
-export type NotificationNavigationTarget = {
-  pathname: "/inbox/[deliveryId]" | "/post-concern/my-concerns/responses/[responseId]";
-  params: Record<string, string>;
-};
+export type NotificationNavigationTarget =
+  | {
+      pathname: "/inbox/[deliveryId]";
+      params: {
+        deliveryId: string;
+      };
+    }
+  | {
+      pathname: "/post-concern/my-concerns/responses/[responseId]";
+      params: {
+        responseId: string;
+      };
+    };
 
 const UUID_LIKE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 

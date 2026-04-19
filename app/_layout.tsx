@@ -1,5 +1,5 @@
 import * as Notifications from "expo-notifications";
-import { Stack, useRouter } from "expo-router";
+import { Tabs, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -69,13 +69,79 @@ function RootEffects() {
   return null;
 }
 
+function RootTabs() {
+  const segments = useSegments();
+  const currentPath = `/${segments.join("/")}`;
+  const showTabBar =
+    currentPath === "/inbox" ||
+    currentPath === "/post-concern" ||
+    currentPath === "/notifications" ||
+    currentPath === "/profile";
+
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: showTabBar
+          ? {
+              backgroundColor: "#ffffff",
+              borderTopColor: "#e2e8f0",
+            }
+          : {
+              display: "none",
+            },
+        sceneStyle: {
+          backgroundColor: "#f8fafc",
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="onboarding"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          title: "Inbox",
+        }}
+      />
+      <Tabs.Screen
+        name="post-concern"
+        options={{
+          title: "Post concern",
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Notifications",
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+        }}
+      />
+    </Tabs>
+  );
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
         <RootEffects />
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }} />
+        <RootTabs />
       </SessionProvider>
     </SafeAreaProvider>
   );

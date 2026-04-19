@@ -30,7 +30,7 @@
 - [x] 첫 실행 온보딩 수집 항목은 `성별 + 관심분야(복수 선택)`로 고정한다.
 - [x] 성별은 `onboarding_completed = true`가 되는 시점에 필수값으로 강제한다.
 - [x] 현재 저장소에는 일반 클라이언트의 직접 `gender` 수정 경로를 두지 않는다.
-- [ ] 하단 네비게이션은 `Inbox / Post concern / Notifications / Profile` 4개로 고정한다.
+- [x] 하단 네비게이션은 `Inbox / Post concern / Notifications / Profile` 4개로 고정한다.
 - [ ] `My concerns`는 별도 탭이 아니라 `Post concern` 내부 중첩 화면으로 고정한다.
 - [ ] 앱 첫 화면은 항상 `Inbox(내게 전달된 고민 목록)`로 고정한다.
 - [ ] 실사용자 고민은 적격 답변자가 3명 이상 있으면 정확히 3명에게 전달한다.
@@ -41,7 +41,7 @@
 - [x] `response_feedback`는 `liked`와 `comment_body`를 같은 행에 저장한다.
 - [x] `notifications` 읽음 상태는 enum이 아니라 `read_at nullable`로 처리한다.
 - [x] 차단된 원문과 raw moderation payload는 일반 제품 테이블이 아니라 관리자 전용 moderation audit 저장소에만 보관한다.
-- [ ] solved-count는 저장형 카운터가 아니라 실사용자 고민의 실제 positive feedback으로부터 파생 계산한다.
+- [x] solved-count는 저장형 카운터가 아니라 실사용자 고민의 실제 positive feedback으로부터 파생 계산한다.
 
 ## 2. 기술 기반과 저장소 구조 세팅
 
@@ -163,7 +163,7 @@
 - [x] 현재 온보딩 submit 경로에서 필수값 미입력 시 온보딩 완료를 허용하지 않는다.
 - [x] 온보딩 완료 후 임시 `Inbox` handoff route로 이동시킨다.
 - [x] 앱 재실행 시 온보딩 완료 여부를 보고 진입 경로를 결정한다.
-- [ ] 프로필 화면에서는 관심분야만 수정 가능하게 하고 성별 수정은 막는다.
+- [x] 프로필 화면에서는 관심분야만 수정 가능하게 하고 성별 수정은 막는다.
 
 ## 7. 정보 구조와 화면 골격 구현
 
@@ -174,7 +174,7 @@
   - 고민 작성 화면
   - `My concerns` 중첩 화면
 - [ ] `Notifications` 탭을 구현한다.
-- [ ] `Profile` 탭을 구현한다.
+- [x] `Profile` 탭을 구현한다.
 - [x] 예제 고민은 UI상 실제 사용자 고민처럼 보이게 처리하고 별도 시각 분리 라벨은 넣지 않는다.
 
 ## 8. 실사용자 고민 게시와 라우팅 계약 구현
@@ -270,7 +270,7 @@
   - 수정 후 재시도 가능
 - [x] 좋아요/후기 등록 시 답변자에게 알림을 보낸다.
 - [x] 예제 고민에는 feedback UI와 feedback API를 열지 않는다.
-- [ ] solved-count는 `real concern + positive feedback`만 집계하도록 구현한다.
+- [x] solved-count는 `real concern + positive feedback`만 집계하도록 구현한다.
 
 ## 12. 예제 고민 공급 흐름 구현
 
@@ -296,7 +296,7 @@
 
 ## 14. RLS 정책과 서버 접근 규칙 구현
 
-- [ ] `profiles`는 본인만 조회 가능하게 하고, 일반 클라이언트의 직접 수정은 허용하지 않으며 보호된 프로필 쓰기는 서버 소유 경로로 처리한다.
+- [x] `profiles`는 본인만 조회 가능하게 하고, 일반 클라이언트의 직접 수정은 허용하지 않으며 보호된 프로필 쓰기는 서버 소유 경로로 처리한다.
 - [x] 실사용자 고민은 작성자만 자신의 고민을 조회 가능하게 한다.
 - [x] `concern_deliveries`는 배정된 recipient만 조회 가능하게 한다.
 - [x] 답변 생성은 해당 delivery의 recipient만 가능하게 한다.
