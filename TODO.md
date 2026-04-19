@@ -326,11 +326,11 @@
 
 ## 16. 테스트와 수용 기준
 
-- [ ] migration 테스트를 작성한다.
+- [x] migration 테스트를 작성한다.
   - source type check constraint 동작 확인
   - delivery/response/feedback uniqueness 확인
   - notification `read_at` 동작 확인
-- [ ] RLS/policy 테스트를 작성한다.
+- [x] RLS/policy 테스트를 작성한다.
   - 고민 작성자가 자신의 고민만 읽을 수 있음
   - recipient가 자신에게 전달된 고민만 읽을 수 있음
   - recipient만 해당 delivery에 답변 생성 가능
@@ -351,7 +351,7 @@
   - OpenAI 입력에 후보자별 모든 과거 고민 게시/답변 기록이 포함됨
   - 적격 후보가 있는데 OpenAI가 `no match`를 반환하는 경로가 없음
   - 예제 고민이 routable real concern의 fallback branch로 사용되지 않음
-- [ ] moderation 테스트를 작성한다.
+- [x] moderation 테스트를 작성한다.
   - 차단된 고민/답변/후기 코멘트가 audit 저장소에만 기록됨
   - 승인된 콘텐츠만 제품 테이블에 생성됨
 - [x] 예제 고민 테스트를 작성한다.
@@ -361,13 +361,13 @@
   - 예제 고민은 feedback 없음
   - 예제 고민은 solved-count/기본 분석 제외
 - [ ] 실제 사용자 플로우 E2E 시나리오를 검증한다.
-  - 앱 설치
-  - 익명 로그인
-  - 성별/관심분야 온보딩
-  - 고민 작성
-  - 초기 실사용자 고민 3명 라우팅
-  - 답변 작성
-  - 좋아요/후기
+  - [ ] 앱 설치
+  - [x] 익명 로그인
+  - [x] 성별/관심분야 온보딩
+  - [x] 고민 작성
+  - [x] 초기 실사용자 고민 3명 라우팅
+  - [x] 답변 작성
+  - [x] 좋아요/후기
 
 ## 17. 로깅, 운영, 배포 준비
 

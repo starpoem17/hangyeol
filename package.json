@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "vitest run",
+    "test:phase11": "node scripts/run-phase11-tests.mjs",
     "moderation:audit": "node scripts/list-moderation-audit.mjs"
   },
   "dependencies": {

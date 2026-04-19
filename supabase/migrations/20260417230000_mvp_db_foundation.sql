@@ -364,6 +364,28 @@ begin
 end;
 $$;
 
+create or replace function public.can_access_response_for_select(
+  p_response_id uuid,
+  p_actor_profile_id uuid
+)
+returns boolean
+language sql
+security definer
+set search_path = public, private, pg_temp
+as $$
+  select exists (
+    select 1
+    from public.responses r
+    join public.concern_deliveries d on d.id = r.delivery_id
+    join public.concerns c on c.id = d.concern_id
+    where r.id = p_response_id
+      and (
+        d.recipient_profile_id = p_actor_profile_id
+        or (c.source_type = 'real' and c.author_profile_id = p_actor_profile_id)
+      )
+  );
+$$;
+
 create trigger set_profiles_updated_at
 before update on public.profiles
 for each row execute function public.set_updated_at();
@@ -402,6 +424,7 @@ for each row execute function private.notifications_read_at_only();
 
 grant usage on schema public to authenticated;
 
+grant execute on function public.can_access_response_for_select(uuid, uuid) to authenticated;
 grant select on public.profiles to authenticated;
 grant select on public.interests to authenticated;
 grant select, insert, delete on public.profile_interests to authenticated;
@@ -480,18 +503,7 @@ create policy responses_select_participant
 on public.responses
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.concern_deliveries d
-    join public.concerns c on c.id = d.concern_id
-    where d.id = responses.delivery_id
-      and (
-        d.recipient_profile_id = auth.uid()
-        or (c.source_type = 'real' and c.author_profile_id = auth.uid())
-      )
-  )
-);
+using (public.can_access_response_for_select(id, auth.uid()));
 
 create policy responses_insert_recipient_only
 on public.responses

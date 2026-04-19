@@ -53,9 +53,9 @@ begin
       message = 'only real concerns may create deliveries';
   end if;
 
-  select count(distinct recipient_profile_id)
+  select count(distinct candidate_profile_id)
     into v_distinct_recipient_count
-  from unnest(p_recipient_profile_ids) as recipient_profile_id;
+  from unnest(p_recipient_profile_ids) as recipients(candidate_profile_id);
 
   if v_distinct_recipient_count <> v_recipient_count then
     raise exception using
@@ -65,8 +65,8 @@ begin
 
   if exists (
     select 1
-    from unnest(p_recipient_profile_ids) as recipient_profile_id
-    where recipient_profile_id = v_author_profile_id
+    from unnest(p_recipient_profile_ids) as recipients(candidate_profile_id)
+    where candidate_profile_id = v_author_profile_id
   ) then
     raise exception using
       errcode = '23514',
@@ -103,7 +103,7 @@ create or replace function public.submit_approved_concern_with_routing_and_notif
   p_validated_body text,
   p_category_summary jsonb default '{}'::jsonb,
   p_raw_provider_payload jsonb default '{}'::jsonb,
-  p_recipient_profile_ids uuid[]
+  p_recipient_profile_ids uuid[] default '{}'::uuid[]
 )
 returns table (
   concern_id uuid,
@@ -149,9 +149,9 @@ begin
       message = 'approved concern submissions require exactly 3 recipient profile ids';
   end if;
 
-  select count(distinct recipient_profile_id)
+  select count(distinct candidate_profile_id)
     into v_distinct_recipient_count
-  from unnest(p_recipient_profile_ids) as recipient_profile_id;
+  from unnest(p_recipient_profile_ids) as recipients(candidate_profile_id);
 
   if v_distinct_recipient_count <> 3 then
     raise exception using
@@ -161,8 +161,8 @@ begin
 
   if exists (
     select 1
-    from unnest(p_recipient_profile_ids) as recipient_profile_id
-    where recipient_profile_id = p_actor_profile_id
+    from unnest(p_recipient_profile_ids) as recipients(candidate_profile_id)
+    where candidate_profile_id = p_actor_profile_id
   ) then
     raise exception using
       errcode = '23514',
@@ -262,6 +262,8 @@ revoke all on function public.submit_approved_concern_with_routing_and_notificat
 revoke all on function public.submit_approved_concern_with_routing_and_notifications(uuid, text, text, jsonb, jsonb, uuid[]) from anon;
 revoke all on function public.submit_approved_concern_with_routing_and_notifications(uuid, text, text, jsonb, jsonb, uuid[]) from authenticated;
 grant execute on function public.submit_approved_concern_with_routing_and_notifications(uuid, text, text, jsonb, jsonb, uuid[]) to service_role;
+
+drop function if exists public.submit_response_with_notifications_and_moderation_audit(uuid, uuid, text, text, boolean, jsonb, jsonb);
 
 create or replace function public.submit_response_with_notifications_and_moderation_audit(
   p_actor_profile_id uuid,

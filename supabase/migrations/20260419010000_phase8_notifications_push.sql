@@ -37,28 +37,23 @@ begin
     return;
   end if;
 
-  with deleted_current as (
-    delete from public.push_tokens
-    where profile_id = v_actor_profile_id
-      and platform = p_platform
-  ),
-  upserted as (
-    insert into public.push_tokens (
-      profile_id,
-      expo_push_token,
-      platform
-    )
-    values (
-      v_actor_profile_id,
-      v_normalized_token,
-      p_platform
-    )
-    on conflict (expo_push_token) do update
-      set profile_id = excluded.profile_id,
-          platform = excluded.platform
-    returning id
+  delete from public.push_tokens
+  where profile_id = v_actor_profile_id
+    and platform = p_platform;
+
+  insert into public.push_tokens (
+    profile_id,
+    expo_push_token,
+    platform
   )
-  select 1;
+  values (
+    v_actor_profile_id,
+    v_normalized_token,
+    p_platform
+  )
+  on conflict (expo_push_token) do update
+    set profile_id = excluded.profile_id,
+        platform = excluded.platform;
 end;
 $$;
 
