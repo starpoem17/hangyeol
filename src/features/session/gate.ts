@@ -13,6 +13,10 @@ export type GateInput = {
   profile: PhaseProfile | null;
 };
 
+export function isProfileReadyForInbox(profile: PhaseProfile | null) {
+  return profile?.onboardingCompleted === true && profile.gender !== null;
+}
+
 export function decideGateRoute(input: GateInput): GateRoute {
   if (input.bootstrapStatus === "failed") {
     return "fatal-error";
@@ -26,7 +30,7 @@ export function decideGateRoute(input: GateInput): GateRoute {
     return "loading";
   }
 
-  if (input.profile.onboardingCompleted && input.profile.gender !== null) {
+  if (isProfileReadyForInbox(input.profile)) {
     return "inbox";
   }
 

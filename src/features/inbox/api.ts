@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { compareInboxDeliveries, mapInboxDeliveryDetail, mapInboxDeliveryListItem, mapInboxResponse } from "./mappers";
+import {
+  compareInboxDeliveries,
+  mapInboxDeliveryDetail,
+  mapInboxDeliveryListItem,
+  mapInboxResponse,
+  mapInboxResponseFeedback,
+} from "./mappers";
 
 const DELIVERY_SELECT = `
   id,
@@ -52,6 +58,20 @@ export async function getInboxResponseByDeliveryId(supabase: SupabaseClient, del
   }
 
   return data ? mapInboxResponse(data) : null;
+}
+
+export async function getInboxResponseFeedbackByDeliveryId(supabase: SupabaseClient, deliveryId: string) {
+  const { data, error } = await supabase.rpc("get_my_response_feedback_for_delivery", {
+    p_delivery_id: deliveryId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = Array.isArray(data) ? data[0] : null;
+
+  return row ? mapInboxResponseFeedback(row) : null;
 }
 
 export async function markConcernDeliveryOpened(supabase: SupabaseClient, deliveryId: string) {

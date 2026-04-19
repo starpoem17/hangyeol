@@ -6,11 +6,21 @@ export type NotificationType =
 
 export type NotificationRelatedEntityType = "concern" | "concern_delivery" | "response" | "response_feedback";
 
-export type NotificationListItem = {
-  id: string;
+export type NotificationRouteInput = {
   type: NotificationType;
   relatedEntityType: NotificationRelatedEntityType;
   relatedEntityId: string;
+};
+
+export type NotificationListItem = NotificationRouteInput & {
+  id: string;
   readAt: string | null;
   createdAt: string;
+};
+
+export type NotificationPushPayload = {
+  notificationId: string;
+  type: NotificationType;
+  relatedEntityType: NotificationRelatedEntityType;
+  relatedEntityId: string;
 };

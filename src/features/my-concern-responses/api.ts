@@ -20,10 +20,61 @@ type GetMyConcernResponseFeedbackRow = {
 
 type SaveMyConcernResponseFeedbackInput = {
   responseId: string;
-  concernAuthorProfileId: string;
   liked: boolean;
   commentBody: string | null;
 };
+
+export type SaveMyConcernResponseFeedbackResultCode = "saved" | "no_op" | "example_concern_not_allowed";
+
+export type SaveMyConcernResponseFeedbackResult = {
+  resultCode: SaveMyConcernResponseFeedbackResultCode;
+};
+
+export type SaveMyConcernResponseFeedbackFailure = {
+  kind: "application" | "network";
+  httpStatus?: number;
+  code?: "response_not_accessible";
+  userMessage: string;
+};
+
+type SaveFeedbackErrorResponse = {
+  code?: string;
+  userMessage?: string;
+};
+
+type ErrorWithContext = {
+  context?: Response;
+};
+
+function isErrorWithContext(error: unknown): error is ErrorWithContext {
+  return typeof error === "object" && error !== null && "context" in error;
+}
+
+async function interpretSaveFeedbackError(error: unknown): Promise<SaveMyConcernResponseFeedbackFailure> {
+  if (isErrorWithContext(error) && error.context instanceof Response) {
+    let payload: SaveFeedbackErrorResponse | null = null;
+
+    try {
+      payload = (await error.context.json()) as SaveFeedbackErrorResponse;
+    } catch {
+      payload = null;
+    }
+
+    if (payload?.code === "response_not_accessible" && typeof payload.userMessage === "string") {
+      return {
+        kind: "application",
+        httpStatus: error.context.status,
+        code: "response_not_accessible",
+        userMessage: payload.userMessage,
+      };
+    }
+  }
+
+  return {
+    kind: "network",
+    userMessage: "피드백을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  };
+}
 
 export async function listMyConcernResponses(supabase: SupabaseClient, concernId: string) {
   const { data, error } = await supabase.rpc("list_my_concern_responses", {
@@ -66,17 +117,24 @@ export async function getMyConcernResponseFeedback(supabase: SupabaseClient, res
 }
 
 export async function saveMyConcernResponseFeedback(supabase: SupabaseClient, input: SaveMyConcernResponseFeedbackInput) {
-  const payload = {
-    response_id: input.responseId,
-    concern_author_profile_id: input.concernAuthorProfileId,
-    liked: input.liked,
-    comment_body: input.commentBody,
-  };
-  const { error } = await supabase.from("response_feedback").upsert(payload, {
-    onConflict: "response_id,concern_author_profile_id",
+  const { data, error } = await supabase.functions.invoke<SaveMyConcernResponseFeedbackResult>("save-response-feedback", {
+    body: {
+      responseId: input.responseId,
+      liked: input.liked,
+      commentBody: input.commentBody,
+    },
   });
 
   if (error) {
-    throw error;
+    throw await interpretSaveFeedbackError(error);
   }
+
+  if (!data) {
+    throw {
+      kind: "network",
+      userMessage: "피드백을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    } satisfies SaveMyConcernResponseFeedbackFailure;
+  }
+
+  return data;
 }

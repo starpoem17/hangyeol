@@ -171,4 +171,39 @@ describe("submitConcernWithDependencies", () => {
       },
     });
   });
+
+  it("fails the request when a routing invariant breach is surfaced after concern creation", async () => {
+    await expect(
+      submitConcernWithDependencies(
+        {
+          authUserId: "user-1",
+          payload: { body: "승인 가능한 고민입니다." },
+        },
+        {
+          resolveProfileId: vi.fn().mockResolvedValue("profile-1"),
+          moderateConcernBody: vi.fn().mockResolvedValue({
+            blocked: false,
+            categorySummary: {
+              flagged_categories: [],
+            },
+            rawProviderPayload: { id: "modr_4" },
+          }),
+          persistBlockedConcernSubmission: vi.fn(),
+          persistApprovedConcernSubmission: vi.fn().mockResolvedValue({
+            concernId: "concern-3",
+          }),
+          routeApprovedConcernSubmission: vi
+            .fn()
+            .mockRejectedValue(new Error("routing invariant breach: concern_not_real")),
+        },
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      httpStatus: 500,
+      body: {
+        code: "concern_submission_failed",
+        userMessage: "게시를 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      },
+    });
+  });
 });

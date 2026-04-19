@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { listNotifications } from "@/features/notifications/api";
+import { listNotifications, markNotificationRead } from "@/features/notifications/api";
 import { getNotificationNavigationTarget } from "@/features/notifications/navigation";
 import type { NotificationListItem } from "@/features/notifications/types";
 import { useSessionContext } from "@/features/session/context";
@@ -18,11 +18,35 @@ function formatDateTime(value: string) {
 }
 
 function getNotificationTitle(notification: NotificationListItem) {
+  if (notification.type === "concern_delivered" && notification.relatedEntityType === "concern_delivery") {
+    return "새 고민이 도착했어요";
+  }
+
   if (notification.type === "response_received" && notification.relatedEntityType === "response") {
     return "내 고민에 새 답변이 도착했어요";
   }
 
+  if (notification.type === "response_liked" && notification.relatedEntityType === "concern_delivery") {
+    return "내 답변에 도움이 됐다는 반응이 도착했어요";
+  }
+
+  if (notification.type === "response_commented" && notification.relatedEntityType === "concern_delivery") {
+    return "내 답변에 후기가 도착했어요";
+  }
+
   return "아직 열 수 없는 알림입니다";
+}
+
+function getNotificationDescription(notification: NotificationListItem, isNavigable: boolean) {
+  if (!isNavigable) {
+    return "현재 버전에서는 이 알림을 열 수 없어요.";
+  }
+
+  if (notification.type === "response_received") {
+    return "답변 상세로 이동";
+  }
+
+  return "연결된 상세 화면으로 이동";
 }
 
 export default function NotificationsScreen() {
@@ -122,20 +146,24 @@ export default function NotificationsScreen() {
         return (
           <Pressable
             disabled={!isNavigable}
-            onPress={() => {
+            onPress={async () => {
               if (target) {
+                try {
+                  await markNotificationRead(supabase, item.id);
+                } catch {
+                  // Read marking is best-effort. Navigation still proceeds.
+                }
+
                 router.push(target);
               }
             }}
-            style={[styles.card, !isNavigable && styles.cardDisabled]}
+            style={[styles.card, !isNavigable && styles.cardDisabled, !item.readAt && styles.cardUnread]}
           >
             <View style={styles.cardHeader}>
               <Text style={styles.titleText}>{getNotificationTitle(item)}</Text>
               <Text style={styles.metaText}>{formatDateTime(item.createdAt)}</Text>
             </View>
-            <Text style={styles.subtleText}>
-              {isNavigable ? "답변 상세로 이동" : "현재 버전에서는 이 알림을 열 수 없어요."}
-            </Text>
+            <Text style={styles.subtleText}>{getNotificationDescription(item, isNavigable)}</Text>
           </Pressable>
         );
       }}
@@ -192,6 +220,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e2e8f0",
     padding: 18,
+  },
+  cardUnread: {
+    borderColor: "#93c5fd",
+    backgroundColor: "#f8fbff",
   },
   cardDisabled: {
     opacity: 0.72,

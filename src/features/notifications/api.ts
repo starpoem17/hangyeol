@@ -15,3 +15,15 @@ export async function listNotifications(supabase: SupabaseClient) {
 
   return (data ?? []).map(mapNotificationListItem).sort(compareNotifications);
 }
+
+export async function markNotificationRead(supabase: SupabaseClient, notificationId: string) {
+  const { data, error } = await supabase.rpc("mark_notification_read", {
+    p_notification_id: notificationId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data === true;
+}

@@ -11,8 +11,16 @@ import {
   submitResponseWithDependencies,
   type PersistResponseSubmissionResult,
 } from "../../../src/features/responses/server/submit-response-service.ts";
+import { sendNotificationPushes } from "../_shared/expo-push.ts";
 
 type JsonHeaders = Record<string, string>;
+type NotificationRow = {
+  notification_id: string | null;
+  notification_profile_id: string | null;
+  notification_type: PersistResponseSubmissionResult["notifications"][number]["type"] | null;
+  notification_related_entity_type: PersistResponseSubmissionResult["notifications"][number]["relatedEntityType"] | null;
+  notification_related_entity_id: string | null;
+};
 
 type ResponseModerationRpcPayload = {
   p_actor_profile_id: string;
@@ -155,31 +163,60 @@ function buildServerErrorBody(): SubmitResponseErrorResponse {
 }
 
 function normalizeRpcResult(data: unknown): PersistResponseSubmissionResult {
-  const row = Array.isArray(data) ? data[0] : data;
+  const rows = Array.isArray(data) ? data : [data];
+  const firstRow = rows[0];
 
   if (
-    !row ||
-    typeof row !== "object" ||
-    !("result_code" in row) ||
-    typeof row.result_code !== "string" ||
-    !("notification_created" in row) ||
-    typeof row.notification_created !== "boolean"
+    !firstRow ||
+    typeof firstRow !== "object" ||
+    !("result_code" in firstRow) ||
+    typeof firstRow.result_code !== "string" ||
+    !("notification_created" in firstRow) ||
+    typeof firstRow.notification_created !== "boolean"
   ) {
     throw new Error("response submission rpc returned an invalid result");
   }
 
-  const resultRow = row as {
+  const resultRow = firstRow as {
     response_id?: string | null;
     result_code: PersistResponseSubmissionResult["resultCode"];
     notification_created: boolean;
   };
 
   const responseId = typeof resultRow.response_id === "string" || resultRow.response_id === null ? resultRow.response_id : null;
+  const notifications = rows.flatMap((row) => {
+    if (!row || typeof row !== "object") {
+      return [];
+    }
+
+    const notificationRow = row as NotificationRow;
+
+    if (
+      typeof notificationRow.notification_id !== "string" ||
+      typeof notificationRow.notification_profile_id !== "string" ||
+      typeof notificationRow.notification_type !== "string" ||
+      typeof notificationRow.notification_related_entity_type !== "string" ||
+      typeof notificationRow.notification_related_entity_id !== "string"
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: notificationRow.notification_id,
+        profileId: notificationRow.notification_profile_id,
+        type: notificationRow.notification_type,
+        relatedEntityType: notificationRow.notification_related_entity_type,
+        relatedEntityId: notificationRow.notification_related_entity_id,
+      },
+    ];
+  });
 
   return {
     responseId,
     resultCode: resultRow.result_code,
     notificationCreated: resultRow.notification_created,
+    notifications,
   };
 }
 
@@ -227,6 +264,7 @@ Deno.serve(async (request) => {
 
   try {
     const serviceClient = createServiceClient();
+    let pendingNotifications: PersistResponseSubmissionResult["notifications"] = [];
 
     const result = await submitResponseWithDependencies(
       {
@@ -246,7 +284,7 @@ Deno.serve(async (request) => {
         moderateResponseBody,
         persistResponseSubmission: async ({ actorProfileId, deliveryId, rawSubmittedText, validatedBody, moderation }) => {
           const { data, error } = await serviceClient.rpc(
-            "submit_response_with_moderation_audit",
+            "submit_response_with_notifications_and_moderation_audit",
             buildPersistencePayload({
               actorProfileId,
               deliveryId,
@@ -262,10 +300,29 @@ Deno.serve(async (request) => {
             throw error;
           }
 
-          return normalizeRpcResult(data);
+          const result = normalizeRpcResult(data);
+          pendingNotifications = result.notifications;
+          return result;
         },
       },
     );
+
+    if (pendingNotifications.length > 0) {
+      try {
+        await sendNotificationPushes(
+          serviceClient,
+          pendingNotifications.map((notification) => ({
+            notificationId: notification.id,
+            profileId: notification.profileId,
+            type: notification.type,
+            relatedEntityType: notification.relatedEntityType,
+            relatedEntityId: notification.relatedEntityId,
+          })),
+        );
+      } catch (error) {
+        console.error("submit-response push send failure", error);
+      }
+    }
 
     return jsonResponse(result.httpStatus, result.body);
   } catch (error) {

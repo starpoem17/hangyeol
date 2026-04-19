@@ -1,8 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { decideGateRoute } from "./gate";
+import { decideGateRoute, isProfileReadyForInbox } from "./gate";
 
 describe("decideGateRoute", () => {
+  it("uses the shared readiness helper for inbox eligibility", () => {
+    expect(
+      isProfileReadyForInbox({
+        id: "profile-1",
+        gender: "female",
+        onboardingCompleted: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      isProfileReadyForInbox({
+        id: "profile-2",
+        gender: null,
+        onboardingCompleted: true,
+      }),
+    ).toBe(false);
+  });
+
   it("stays in loading while no session is being established", () => {
     expect(
       decideGateRoute({

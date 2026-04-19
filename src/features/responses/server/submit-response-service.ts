@@ -10,6 +10,7 @@ import {
 } from "../contracts.ts";
 import { validateSubmitResponsePayload } from "../validation.ts";
 import type { ModerationDecision } from "../../concerns/server/moderation.ts";
+import type { NotificationRelatedEntityType, NotificationType } from "../../notifications/types.ts";
 
 export type SubmitResponseRpcResultCode = "blocked" | "approved" | "delivery_not_accessible" | "delivery_already_responded";
 
@@ -38,10 +39,19 @@ export type PersistResponseSubmissionInput = {
   moderation: ModerationDecision;
 };
 
+export type PersistedNotification = {
+  id: string;
+  profileId: string;
+  type: NotificationType;
+  relatedEntityType: NotificationRelatedEntityType;
+  relatedEntityId: string;
+};
+
 export type PersistResponseSubmissionResult = {
   responseId: string | null;
   resultCode: SubmitResponseRpcResultCode;
   notificationCreated: boolean;
+  notifications: PersistedNotification[];
 };
 
 export type SubmitResponseServiceDependencies = {

@@ -48,6 +48,10 @@ export type SubmitConcernServiceDependencies = {
   routeApprovedConcernSubmission?(input: RouteApprovedConcernInput): Promise<void>;
 };
 
+function isRoutingInvariantError(error: unknown) {
+  return error instanceof Error && error.message === "routing invariant breach: concern_not_real";
+}
+
 function buildError(httpStatus: 400 | 401 | 409 | 500 | 502, body: SubmitConcernErrorResponse): SubmitConcernServiceResult {
   return {
     ok: false,
@@ -134,7 +138,11 @@ export async function submitConcernWithDependencies(
       await dependencies.routeApprovedConcernSubmission?.({
         concernId,
       });
-    } catch {
+    } catch (error) {
+      if (isRoutingInvariantError(error)) {
+        throw error;
+      }
+
       // Routing runs as a best-effort backend consequence in Phase 4.
       // The approved concern row must still be returned to the caller.
     }

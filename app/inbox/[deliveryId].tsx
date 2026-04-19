@@ -12,8 +12,13 @@ import {
   View,
 } from "react-native";
 
-import { getInboxDeliveryDetail, getInboxResponseByDeliveryId, markConcernDeliveryOpened } from "@/features/inbox/api";
-import type { InboxDeliveryDetail, InboxResponse } from "@/features/inbox/types";
+import {
+  getInboxDeliveryDetail,
+  getInboxResponseByDeliveryId,
+  getInboxResponseFeedbackByDeliveryId,
+  markConcernDeliveryOpened,
+} from "@/features/inbox/api";
+import type { InboxDeliveryDetail, InboxResponse, InboxResponseFeedback } from "@/features/inbox/types";
 import { submitResponse, type SubmitResponseFailure } from "@/features/responses/api";
 import { validateSubmitResponsePayload } from "@/features/responses/validation";
 import { useSessionContext } from "@/features/session/context";
@@ -35,6 +40,7 @@ export default function InboxDetailScreen() {
   const { isLoading: isSessionLoading, session } = useSessionContext();
   const [delivery, setDelivery] = useState<InboxDeliveryDetail | null>(null);
   const [response, setResponse] = useState<InboxResponse | null>(null);
+  const [feedback, setFeedback] = useState<InboxResponseFeedback | null>(null);
   const [draftBody, setDraftBody] = useState("");
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error" | "not_found">("loading");
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null);
@@ -59,6 +65,7 @@ export default function InboxDetailScreen() {
         setLoadState("not_found");
         setDelivery(null);
         setResponse(null);
+        setFeedback(null);
         return () => undefined;
       }
 
@@ -79,6 +86,7 @@ export default function InboxDetailScreen() {
           if (!nextDelivery) {
             setDelivery(null);
             setResponse(null);
+            setFeedback(null);
             setLoadState("not_found");
             return;
           }
@@ -94,12 +102,16 @@ export default function InboxDetailScreen() {
             if (!nextDelivery) {
               setDelivery(null);
               setResponse(null);
+              setFeedback(null);
               setLoadState("not_found");
               return;
             }
           }
 
-          const nextResponse = await getInboxResponseByDeliveryId(supabase, resolvedDeliveryId);
+          const [nextResponse, nextFeedback] = await Promise.all([
+            getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
+            getInboxResponseFeedbackByDeliveryId(supabase, resolvedDeliveryId),
+          ]);
 
           if (!isActive) {
             return;
@@ -107,6 +119,7 @@ export default function InboxDetailScreen() {
 
           setDelivery(nextDelivery);
           setResponse(nextResponse);
+          setFeedback(nextFeedback);
           setLoadState("ready");
         } catch {
           if (!isActive) {
@@ -168,18 +181,23 @@ export default function InboxDetailScreen() {
       setDraftBody("");
       setHasTriedSubmit(false);
 
-      const nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
-      const nextResponse = await getInboxResponseByDeliveryId(supabase, resolvedDeliveryId);
+      const [nextDelivery, nextResponse, nextFeedback] = await Promise.all([
+        getInboxDeliveryDetail(supabase, resolvedDeliveryId),
+        getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
+        getInboxResponseFeedbackByDeliveryId(supabase, resolvedDeliveryId),
+      ]);
 
       if (!nextDelivery) {
         setDelivery(null);
         setResponse(null);
+        setFeedback(null);
         setLoadState("not_found");
         return;
       }
 
       setDelivery(nextDelivery);
       setResponse(nextResponse);
+      setFeedback(nextFeedback);
       setLoadState("ready");
     } catch (error) {
       const failure = error as SubmitResponseFailure;
@@ -187,17 +205,22 @@ export default function InboxDetailScreen() {
       if (failure.kind === "application" && failure.code === "delivery_not_accessible") {
         setDelivery(null);
         setResponse(null);
+        setFeedback(null);
         setLoadState("not_found");
         return;
       }
 
       if (failure.kind === "application" && failure.code === "delivery_already_responded") {
-        const nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
-        const nextResponse = await getInboxResponseByDeliveryId(supabase, resolvedDeliveryId);
+        const [nextDelivery, nextResponse, nextFeedback] = await Promise.all([
+          getInboxDeliveryDetail(supabase, resolvedDeliveryId),
+          getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
+          getInboxResponseFeedbackByDeliveryId(supabase, resolvedDeliveryId),
+        ]);
 
         if (nextDelivery) {
           setDelivery(nextDelivery);
           setResponse(nextResponse);
+          setFeedback(nextFeedback);
           setLoadState("ready");
         }
       }
@@ -250,11 +273,23 @@ export default function InboxDetailScreen() {
         </View>
 
         {response ? (
-          <View style={styles.responseCard}>
-            <Text style={styles.sectionEyebrow}>제출한 답변</Text>
-            <Text style={styles.metaText}>{formatDateTime(response.createdAt)}</Text>
-            <Text style={styles.responseBody}>{response.body}</Text>
-          </View>
+          <>
+            <View style={styles.responseCard}>
+              <Text style={styles.sectionEyebrow}>제출한 답변</Text>
+              <Text style={styles.metaText}>{formatDateTime(response.createdAt)}</Text>
+              <Text style={styles.responseBody}>{response.body}</Text>
+            </View>
+
+            {feedback ? (
+              <View style={styles.feedbackCard}>
+                <Text style={styles.sectionEyebrow}>작성자가 남긴 반응</Text>
+                <Text style={[styles.feedbackPill, feedback.liked ? styles.feedbackPillPositive : styles.feedbackPillNeutral]}>
+                  {feedback.liked ? "도움됐어요" : "아직 아니에요"}
+                </Text>
+                {feedback.commentBody ? <Text style={styles.feedbackBody}>{feedback.commentBody}</Text> : null}
+              </View>
+            ) : null}
+          </>
         ) : (
           <View style={styles.composeCard}>
             <Text style={styles.sectionEyebrow}>답변 작성</Text>
@@ -349,6 +384,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#c7d2fe",
   },
+  feedbackCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#dbeafe",
+  },
   sectionEyebrow: {
     color: "#1d4ed8",
     fontSize: 13,
@@ -371,6 +413,29 @@ const styles = StyleSheet.create({
     color: "#1e293b",
     fontSize: 16,
     lineHeight: 26,
+  },
+  feedbackPill: {
+    alignSelf: "flex-start",
+    marginTop: 14,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  feedbackPillPositive: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+  },
+  feedbackPillNeutral: {
+    backgroundColor: "#e2e8f0",
+    color: "#334155",
+  },
+  feedbackBody: {
+    marginTop: 14,
+    color: "#0f172a",
+    fontSize: 15,
+    lineHeight: 23,
   },
   input: {
     minHeight: 180,

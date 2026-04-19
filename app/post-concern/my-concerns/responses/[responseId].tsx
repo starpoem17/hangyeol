@@ -7,6 +7,7 @@ import {
   getMyConcernResponseFeedback,
   saveMyConcernResponseFeedback,
 } from "@/features/my-concern-responses/api";
+import type { SaveMyConcernResponseFeedbackFailure } from "@/features/my-concern-responses/api";
 import {
   applyApprovedSaveReload,
   applyBlockedOrFailedSavePreservation,
@@ -243,12 +244,16 @@ export default function MyConcernResponseDetailScreen() {
     try {
       const nextValues = toFeedbackSaveValues(feedbackDraft);
 
-      await saveMyConcernResponseFeedback(supabase, {
+      const saveResult = await saveMyConcernResponseFeedback(supabase, {
         responseId: displayDetail.responseId,
-        concernAuthorProfileId: session.user.id,
         liked: nextValues.liked,
         commentBody: nextValues.commentBody,
       });
+
+      if (saveResult.resultCode === "example_concern_not_allowed") {
+        setFeedbackErrorMessage("예제 고민 답변에는 피드백을 남길 수 없어요.");
+        return;
+      }
 
       const [nextResponseDetail, nextFeedback] = await Promise.all([
         getMyConcernResponseDetail(supabase, displayDetail.responseId),
@@ -264,16 +269,28 @@ export default function MyConcernResponseDetailScreen() {
       applyScreenState(applyApprovedSaveReload(currentState, nextResponseDetail, nextFeedback));
       setLoadState("ready");
       setFeedbackNoticeMessage(
-        feedbackBaseline.feedbackExists ? "피드백을 수정했어요." : "피드백을 남겼어요.",
+        saveResult.resultCode === "no_op"
+          ? "변경된 내용이 없어 기존 피드백을 유지했어요."
+          : feedbackBaseline.feedbackExists
+            ? "피드백을 수정했어요."
+            : "피드백을 남겼어요.",
       );
-    } catch {
+    } catch (error) {
+      const failure = error as SaveMyConcernResponseFeedbackFailure;
+
+      if (failure.kind === "application" && failure.code === "response_not_accessible") {
+        clearScreenState();
+        setLoadState("not_found");
+        return;
+      }
+
       const preservedState = screenStateRef.current;
 
       if (preservedState) {
         applyScreenState(applyBlockedOrFailedSavePreservation(preservedState));
       }
 
-      setFeedbackErrorMessage("피드백을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setFeedbackErrorMessage(failure.userMessage);
     } finally {
       setIsSavingFeedback(false);
     }

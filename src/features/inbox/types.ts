@@ -26,3 +26,9 @@ export type InboxResponse = {
   body: string;
   createdAt: string;
 };
+
+export type InboxResponseFeedback = {
+  responseId: string;
+  liked: boolean;
+  commentBody: string | null;
+};

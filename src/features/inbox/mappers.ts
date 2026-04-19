@@ -1,4 +1,4 @@
-import type { InboxConcern, InboxDeliveryDetail, InboxDeliveryListItem, InboxResponse } from "./types";
+import type { InboxConcern, InboxDeliveryDetail, InboxDeliveryListItem, InboxResponse, InboxResponseFeedback } from "./types";
 
 type ConcernRelationRow =
   | {
@@ -31,6 +31,12 @@ type ResponseRow = {
   delivery_id: string;
   body: string;
   created_at: string;
+};
+
+type ResponseFeedbackRow = {
+  response_id: string;
+  liked: boolean;
+  comment_body: string | null;
 };
 
 function normalizeConcernRow(row: ConcernRelationRow): InboxConcern {
@@ -74,6 +80,14 @@ export function mapInboxResponse(row: ResponseRow): InboxResponse {
     deliveryId: row.delivery_id,
     body: row.body,
     createdAt: row.created_at,
+  };
+}
+
+export function mapInboxResponseFeedback(row: ResponseFeedbackRow): InboxResponseFeedback {
+  return {
+    responseId: row.response_id,
+    liked: row.liked,
+    commentBody: row.comment_body,
   };
 }
 

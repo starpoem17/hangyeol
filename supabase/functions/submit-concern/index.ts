@@ -11,9 +11,21 @@ import { submitConcernWithDependencies } from "../../../src/features/concerns/se
 import { selectRespondersWithOpenAi } from "../../../src/features/routing/server/openai-routing.ts";
 import { routeConcernWithDependencies } from "../../../src/features/routing/server/route-concern-service.ts";
 import { loadConcernRoutingState } from "../../../src/features/routing/server/runtime-state.ts";
+import type { NotificationRelatedEntityType, NotificationType } from "../../../src/features/notifications/types.ts";
+import { sendNotificationPushes } from "../_shared/expo-push.ts";
 
 type JsonHeaders = Record<string, string>;
 type ServiceClient = ReturnType<typeof createServiceClient>;
+type DeliveryNotificationRow = {
+  delivery_id: string;
+  recipient_profile_id: string;
+  routing_order: number;
+  notification_id: string;
+  notification_profile_id: string;
+  notification_type: NotificationType;
+  notification_related_entity_type: NotificationRelatedEntityType;
+  notification_related_entity_id: string;
+};
 
 type ModerationRpcPayload = {
   p_actor_profile_id: string;
@@ -153,7 +165,7 @@ function buildServerErrorBody(): SubmitConcernErrorResponse {
 }
 
 async function createConcernDeliveries(serviceClient: ServiceClient, concernId: string, responderProfileIds: string[]) {
-  const { error } = await serviceClient.rpc("route_concern_atomic_write", {
+  const { data, error } = await serviceClient.rpc("route_concern_with_notifications_atomic_write", {
     p_concern_id: concernId,
     p_recipient_profile_ids: responderProfileIds,
   });
@@ -161,11 +173,15 @@ async function createConcernDeliveries(serviceClient: ServiceClient, concernId: 
   if (error) {
     throw error;
   }
+
+  return (data ?? []) as DeliveryNotificationRow[];
 }
 
 async function routeApprovedConcernSubmission(serviceClient: ServiceClient, concernId: string) {
+  let pendingNotifications: DeliveryNotificationRow[] = [];
+
   try {
-    await routeConcernWithDependencies(
+    const result = await routeConcernWithDependencies(
       {
         concernId,
       },
@@ -188,13 +204,48 @@ async function routeApprovedConcernSubmission(serviceClient: ServiceClient, conc
             responderProfileIds: result.responderProfileIds,
           };
         },
-        createConcernDeliveries: async ({ concernId: routedConcernId, responderProfileIds }) =>
-          createConcernDeliveries(serviceClient, routedConcernId, responderProfileIds),
+        createConcernDeliveries: async ({ concernId: routedConcernId, responderProfileIds }) => {
+          pendingNotifications = await createConcernDeliveries(serviceClient, routedConcernId, responderProfileIds);
+        },
         logInfo: (payload) => console.info(payload),
         logError: (payload) => console.error(payload),
       },
     );
+
+    if (!result.ok && result.code === "concern_not_real") {
+      console.error({
+        event: "routing_invariant_breach",
+        concernId,
+        errorCode: result.code,
+      });
+      throw new Error("routing invariant breach: concern_not_real");
+    }
+
+    if (pendingNotifications.length > 0) {
+      try {
+        await sendNotificationPushes(
+          serviceClient,
+          pendingNotifications.map((notification) => ({
+            notificationId: notification.notification_id,
+            profileId: notification.notification_profile_id,
+            type: notification.notification_type,
+            relatedEntityType: notification.notification_related_entity_type,
+            relatedEntityId: notification.notification_related_entity_id,
+          })),
+        );
+      } catch (error) {
+        console.error({
+          event: "routing_push_send_failed",
+          concernId,
+          errorMessage: error instanceof Error ? error.message : "unknown push failure",
+        });
+      }
+    }
   } catch (error) {
+    if (error instanceof Error && error.message === "routing invariant breach: concern_not_real") {
+      throw error;
+    }
+
     console.error({
       event: "routing_unexpected_failure",
       concernId,

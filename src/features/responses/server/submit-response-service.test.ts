@@ -52,6 +52,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_not_accessible",
           notificationCreated: false,
+          notifications: [],
         }),
       },
     );
@@ -85,6 +86,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_not_accessible",
           notificationCreated: false,
+          notifications: [],
         }),
       },
     );
@@ -118,6 +120,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_already_responded",
           notificationCreated: false,
+          notifications: [],
         }),
       },
     );
@@ -137,6 +140,7 @@ describe("submitResponseWithDependencies", () => {
       responseId: null,
       resultCode: "blocked",
       notificationCreated: false,
+      notifications: [],
     });
 
     const result = await submitResponseWithDependencies(
@@ -186,6 +190,15 @@ describe("submitResponseWithDependencies", () => {
       responseId: "response-1",
       resultCode: "approved",
       notificationCreated: true,
+      notifications: [
+        {
+          id: "notification-1",
+          profileId: "profile-2",
+          type: "response_received",
+          relatedEntityType: "response",
+          relatedEntityId: "response-1",
+        },
+      ],
     });
 
     const result = await submitResponseWithDependencies(
@@ -248,6 +261,7 @@ describe("submitResponseWithDependencies", () => {
           responseId: null,
           resultCode: "delivery_already_responded",
           notificationCreated: false,
+          notifications: [],
         }),
       },
     );
