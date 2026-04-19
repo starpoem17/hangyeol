@@ -85,6 +85,10 @@ async function requireAuthenticatedUserId(request: Request) {
 }
 
 Deno.serve(async (request) => {
+  console.log("get-profile-summary function entered", {
+    method: request.method,
+  });
+
   if (request.method === "OPTIONS") {
     return new Response("ok", {
       status: 200,
@@ -99,7 +103,12 @@ Deno.serve(async (request) => {
     });
   }
 
+  let diagnosticStep = "requireAuthenticatedUserId";
   const authUserId = await requireAuthenticatedUserId(request);
+
+  console.log("get-profile-summary authenticated user id resolved", {
+    authUserId,
+  });
 
   if (!authUserId) {
     return jsonResponse(401, {
@@ -112,6 +121,11 @@ Deno.serve(async (request) => {
     const serviceClient = createServiceClient();
     const profileSummary = await getProfileSummaryWithDependencies(authUserId, {
       async loadProfileRow(profileId) {
+        diagnosticStep = "before loadProfileRow";
+        console.log("get-profile-summary before loadProfileRow", {
+          profileId,
+        });
+
         const { data, error } = await serviceClient
           .from("profiles")
           .select("id, gender, onboarding_completed")
@@ -122,9 +136,20 @@ Deno.serve(async (request) => {
           throw error;
         }
 
+        diagnosticStep = "after loadProfileRow";
+        console.log("get-profile-summary after loadProfileRow", {
+          profileId,
+          profileFound: Boolean(data),
+        });
+
         return data;
       },
       async loadProfileInterests(profileId) {
+        diagnosticStep = "before loadProfileInterests";
+        console.log("get-profile-summary before loadProfileInterests", {
+          profileId,
+        });
+
         const { data, error } = await serviceClient
           .from("profile_interests")
           .select("interest_key")
@@ -135,9 +160,20 @@ Deno.serve(async (request) => {
           throw error;
         }
 
+        diagnosticStep = "after loadProfileInterests";
+        console.log("get-profile-summary after loadProfileInterests", {
+          profileId,
+          interestCount: data?.length ?? 0,
+        });
+
         return data ?? [];
       },
       async loadSolvedCount(profileId) {
+        diagnosticStep = "before loadSolvedCount";
+        console.log("get-profile-summary before loadSolvedCount", {
+          profileId,
+        });
+
         const { data, error } = await serviceClient.rpc("get_profile_solved_count_for_service", {
           p_profile_id: profileId,
         });
@@ -146,13 +182,33 @@ Deno.serve(async (request) => {
           throw error;
         }
 
+        diagnosticStep = "after loadSolvedCount";
+        console.log("get-profile-summary after loadSolvedCount", {
+          profileId,
+          solvedCount: data,
+        });
+
         return data;
       },
     });
 
+    diagnosticStep = "before final success response";
+    console.log("get-profile-summary before final success response", {
+      authUserId,
+      summaryFound: profileSummary !== null,
+      interestCount: profileSummary?.interestKeys.length ?? 0,
+      solvedCount: profileSummary?.solvedCount ?? null,
+    });
+
     return jsonResponse(200, profileSummary);
   } catch (error) {
-    console.error("get-profile-summary unexpected failure", error);
+    console.error("get-profile-summary unexpected failure", {
+      diagnosticStep,
+      error,
+      errorName: error instanceof Error ? error.name : undefined,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+    });
     return jsonResponse(500, {
       code: "profile_summary_failed",
       userMessage: "프로필을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
