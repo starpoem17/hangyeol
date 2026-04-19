@@ -160,7 +160,6 @@ export default function InboxListScreen() {
             <Text style={styles.metaText}>{formatRelativeDateTime(item.deliveredAt)}</Text>
           </View>
           <Text style={styles.preview}>{buildConcernPreview(item.concern.body)}</Text>
-          <Text style={styles.subtleText}>전달 순서 {item.routingOrder}</Text>
         </Pressable>
       )}
     />
@@ -260,10 +259,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "600",
-  },
-  subtleText: {
-    marginTop: 14,
-    color: "#64748b",
-    fontSize: 13,
   },
 });

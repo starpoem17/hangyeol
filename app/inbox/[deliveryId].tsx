@@ -18,6 +18,7 @@ import {
   getInboxResponseFeedbackByDeliveryId,
   markConcernDeliveryOpened,
 } from "@/features/inbox/api";
+import { shouldLoadInboxFeedback } from "@/features/inbox/display";
 import type { InboxDeliveryDetail, InboxResponse, InboxResponseFeedback } from "@/features/inbox/types";
 import { submitResponse, type SubmitResponseFailure } from "@/features/responses/api";
 import { validateSubmitResponsePayload } from "@/features/responses/validation";
@@ -32,6 +33,14 @@ function formatDateTime(value: string) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+async function loadInboxFeedback(delivery: InboxDeliveryDetail, deliveryId: string) {
+  if (!shouldLoadInboxFeedback(delivery)) {
+    return null;
+  }
+
+  return getInboxResponseFeedbackByDeliveryId(supabase, deliveryId);
 }
 
 export default function InboxDetailScreen() {
@@ -110,7 +119,7 @@ export default function InboxDetailScreen() {
 
           const [nextResponse, nextFeedback] = await Promise.all([
             getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
-            getInboxResponseFeedbackByDeliveryId(supabase, resolvedDeliveryId),
+            loadInboxFeedback(nextDelivery, resolvedDeliveryId),
           ]);
 
           if (!isActive) {
@@ -181,11 +190,7 @@ export default function InboxDetailScreen() {
       setDraftBody("");
       setHasTriedSubmit(false);
 
-      const [nextDelivery, nextResponse, nextFeedback] = await Promise.all([
-        getInboxDeliveryDetail(supabase, resolvedDeliveryId),
-        getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
-        getInboxResponseFeedbackByDeliveryId(supabase, resolvedDeliveryId),
-      ]);
+      const nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
 
       if (!nextDelivery) {
         setDelivery(null);
@@ -194,6 +199,11 @@ export default function InboxDetailScreen() {
         setLoadState("not_found");
         return;
       }
+
+      const [nextResponse, nextFeedback] = await Promise.all([
+        getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
+        loadInboxFeedback(nextDelivery, resolvedDeliveryId),
+      ]);
 
       setDelivery(nextDelivery);
       setResponse(nextResponse);
@@ -211,13 +221,14 @@ export default function InboxDetailScreen() {
       }
 
       if (failure.kind === "application" && failure.code === "delivery_already_responded") {
-        const [nextDelivery, nextResponse, nextFeedback] = await Promise.all([
-          getInboxDeliveryDetail(supabase, resolvedDeliveryId),
-          getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
-          getInboxResponseFeedbackByDeliveryId(supabase, resolvedDeliveryId),
-        ]);
+        const nextDelivery = await getInboxDeliveryDetail(supabase, resolvedDeliveryId);
 
         if (nextDelivery) {
+          const [nextResponse, nextFeedback] = await Promise.all([
+            getInboxResponseByDeliveryId(supabase, resolvedDeliveryId),
+            loadInboxFeedback(nextDelivery, resolvedDeliveryId),
+          ]);
+
           setDelivery(nextDelivery);
           setResponse(nextResponse);
           setFeedback(nextFeedback);
@@ -280,7 +291,7 @@ export default function InboxDetailScreen() {
               <Text style={styles.responseBody}>{response.body}</Text>
             </View>
 
-            {feedback ? (
+            {shouldLoadInboxFeedback(delivery) && feedback ? (
               <View style={styles.feedbackCard}>
                 <Text style={styles.sectionEyebrow}>작성자가 남긴 반응</Text>
                 <Text style={[styles.feedbackPill, feedback.liked ? styles.feedbackPillPositive : styles.feedbackPillNeutral]}>

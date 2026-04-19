@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { MINIMUM_VISIBLE_INBOX_ITEMS, selectVisibleInboxDeliveries } from "./display";
 import {
-  compareInboxDeliveries,
   mapInboxDeliveryDetail,
   mapInboxDeliveryListItem,
   mapInboxResponse,
@@ -23,7 +23,19 @@ const DELIVERY_SELECT = `
   )
 `;
 
+async function ensureExampleInboxSupply(supabase: SupabaseClient) {
+  const { error } = await supabase.rpc("ensure_example_inbox_supply", {
+    p_target_visible_count: MINIMUM_VISIBLE_INBOX_ITEMS,
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function listInboxDeliveries(supabase: SupabaseClient) {
+  await ensureExampleInboxSupply(supabase);
+
   const { data, error } = await supabase
     .from("concern_deliveries")
     .select(DELIVERY_SELECT)
@@ -33,7 +45,7 @@ export async function listInboxDeliveries(supabase: SupabaseClient) {
     throw error;
   }
 
-  return (data ?? []).map(mapInboxDeliveryListItem).sort(compareInboxDeliveries);
+  return selectVisibleInboxDeliveries((data ?? []).map(mapInboxDeliveryListItem));
 }
 
 export async function getInboxDeliveryDetail(supabase: SupabaseClient, deliveryId: string) {
