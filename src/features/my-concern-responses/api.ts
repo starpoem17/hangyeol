@@ -21,7 +21,6 @@ type GetMyConcernResponseFeedbackRow = {
 type SaveMyConcernResponseFeedbackInput = {
   responseId: string;
   concernAuthorProfileId: string;
-  feedbackExists: boolean;
   liked: boolean;
   commentBody: string | null;
 };
@@ -68,29 +67,13 @@ export async function getMyConcernResponseFeedback(supabase: SupabaseClient, res
 
 export async function saveMyConcernResponseFeedback(supabase: SupabaseClient, input: SaveMyConcernResponseFeedbackInput) {
   const payload = {
-    liked: input.liked,
-    comment_body: input.commentBody,
-  };
-
-  if (input.feedbackExists) {
-    const { error } = await supabase
-      .from("response_feedback")
-      .update(payload)
-      .eq("response_id", input.responseId)
-      .eq("concern_author_profile_id", input.concernAuthorProfileId);
-
-    if (error) {
-      throw error;
-    }
-
-    return;
-  }
-
-  const { error } = await supabase.from("response_feedback").insert({
     response_id: input.responseId,
     concern_author_profile_id: input.concernAuthorProfileId,
     liked: input.liked,
     comment_body: input.commentBody,
+  };
+  const { error } = await supabase.from("response_feedback").upsert(payload, {
+    onConflict: "response_id,concern_author_profile_id",
   });
 
   if (error) {

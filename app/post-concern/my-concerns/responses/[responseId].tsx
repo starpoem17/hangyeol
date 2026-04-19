@@ -9,6 +9,7 @@ import {
 } from "@/features/my-concern-responses/api";
 import {
   applyApprovedSaveReload,
+  applyBlockedOrFailedSavePreservation,
   applyDisplayDetailRefresh,
   canSubmitFeedback,
   getFeedbackEditorMode,
@@ -245,7 +246,6 @@ export default function MyConcernResponseDetailScreen() {
       await saveMyConcernResponseFeedback(supabase, {
         responseId: displayDetail.responseId,
         concernAuthorProfileId: session.user.id,
-        feedbackExists: feedbackBaseline.feedbackExists,
         liked: nextValues.liked,
         commentBody: nextValues.commentBody,
       });
@@ -267,6 +267,12 @@ export default function MyConcernResponseDetailScreen() {
         feedbackBaseline.feedbackExists ? "피드백을 수정했어요." : "피드백을 남겼어요.",
       );
     } catch {
+      const preservedState = screenStateRef.current;
+
+      if (preservedState) {
+        applyScreenState(applyBlockedOrFailedSavePreservation(preservedState));
+      }
+
       setFeedbackErrorMessage("피드백을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setIsSavingFeedback(false);
