@@ -1,6 +1,8 @@
 # 본 프로젝트의 목적
 1. 해당 프로젝트는 프로토타입으로써 Must-Have 구현만을 목표로 한다.
 2. 해당 서비스는 모바일(ios, android)로 배포된다.
+    - ios: TestFlight
+    - android: Google Play internal testing 
 3. 해당 서비스는 익명 고민 공유 플랫폼으로써 동작한다.
 4. 해당 프로젝트는 한국어만을 지원한다.
 
